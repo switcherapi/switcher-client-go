@@ -7,15 +7,16 @@ A Go SDK for Switcher API
 
 <div align="center">
 
+[![Master CI](https://github.com/switcherapi/switcher-client-go/actions/workflows/master.yml/badge.svg)](https://github.com/switcherapi/switcher-client-go/actions/workflows/master.yml)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=switcherapi_switcher-client-go&metric=alert_status)](https://sonarcloud.io/dashboard?id=switcherapi_switcher-client-go)
 ![Go](https://img.shields.io/badge/go-1.25%2B-blue.svg)
 ![Status](https://img.shields.io/badge/status-under_development-orange.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![Slack: Switcher-HQ](https://img.shields.io/badge/slack-@switcher/hq-blue.svg?logo=slack)](https://switcher-hq.slack.com/)
 
 </div>
 
 ***
-
----
 
 ## Table of Contents
 
@@ -447,6 +448,7 @@ Thank you for helping us improve the Switcher Client SDK for Go.
 - Go 1.25 or higher
 - A local Switcher API environment or test fixtures for development
 - Standard Go tooling (`go test`, `gofmt`)
+- `golangci-lint` for repository lint checks (`make lint-install`)
 
 # AI Disclaimer
 
