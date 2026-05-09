@@ -56,11 +56,11 @@ package main
 import (
 	"fmt"
 
-	switcherclient "github.com/switcherapi/switcher-client-go"
+	"github.com/switcherapi/switcher-client-go"
 )
 
 func main() {
-	switcherclient.BuildContext(switcherclient.Context{
+	client.BuildContext(client.Context{
 		Domain:      "My Domain",
 		URL:         "https://api.switcherapi.com",
 		APIKey:      "[YOUR_API_KEY]",
@@ -68,7 +68,7 @@ func main() {
 		Environment: "default",
 	})
 
-	switcher := switcherclient.GetSwitcher("FEATURE_TOGGLE")
+	switcher := client.GetSwitcher("FEATURE_TOGGLE")
 	if switcher.IsOn() {
 		fmt.Println("Feature is enabled!")
 	}
@@ -97,11 +97,11 @@ Initialize the Switcher Client with your domain configuration:
 package main
 
 import (
-	switcherclient "github.com/switcherapi/switcher-client-go"
+	"github.com/switcherapi/switcher-client-go"
 )
 
 func main() {
-	switcherclient.BuildContext(switcherclient.Context{
+	client.BuildContext(client.Context{
 		Domain:      "My Domain",                	// Your Switcher domain name
 		URL:         "https://api.switcherapi.com", // Switcher-API endpoint (optional)
 		APIKey:      "[YOUR_API_KEY]",           	// Your component's API key (optional)
@@ -109,7 +109,7 @@ func main() {
 		Environment: "default",                  	// Environment ("default" for production)
 	})
 
-	switcher := switcherclient.GetSwitcher("FEATURE_LOGIN_V2")
+	switcher := client.GetSwitcher("FEATURE_LOGIN_V2")
 	_ = switcher
 }
 ```
@@ -134,17 +134,17 @@ package main
 import (
 	"time"
 
-	switcherclient "github.com/switcherapi/switcher-client-go"
+	"github.com/switcherapi/switcher-client-go"
 )
 
 func main() {
-	switcherclient.BuildContext(switcherclient.Context{
+	client.BuildContext(client.Context{
 		Domain:      "My Domain",
 		URL:         "https://api.switcherapi.com",
 		APIKey:      "[YOUR_API_KEY]",
 		Component:   "MyApp",
 		Environment: "default",
-		Options: switcherclient.ContextOptions{
+		Options: client.ContextOptions{
 			Local:                      true,
 			Logger:                     true,
 			Freeze:                     true,
@@ -155,7 +155,7 @@ func main() {
 			ThrottleMaxWorkers:         2,
 			RegexMaxBlacklist:          10,
 			RegexMaxTimeLimit:          100 * time.Millisecond,
-			Remote: switcherclient.RemoteOptions{
+			Remote: client.RemoteOptions{
 				CertPath:       "./certs/ca.pem",
 				ConnectTimeout: 300 * time.Millisecond,
 				ReadTimeout:    5 * time.Second,
@@ -165,7 +165,7 @@ func main() {
 		},
 	})
 
-	switcher := switcherclient.GetSwitcher("FEATURE_LOGIN_V2")
+	switcher := client.GetSwitcher("FEATURE_LOGIN_V2")
 	_ = switcher
 }
 ```
@@ -211,7 +211,7 @@ func main() {
 The simplest way to check if a feature is enabled:
 
 ```go
-switcher := switcherclient.GetSwitcher("FEATURE_LOGIN_V2")
+switcher := client.GetSwitcher("FEATURE_LOGIN_V2")
 
 if switcher.IsOn() {
 	newLogin()
@@ -225,7 +225,7 @@ if switcher.IsOn() {
 Get comprehensive information about the feature flag evaluation:
 
 ```go
-response := switcherclient.GetSwitcher("FEATURE_LOGIN_V2").IsOnWithDetails()
+response := client.GetSwitcher("FEATURE_LOGIN_V2").IsOnWithDetails()
 
 fmt.Printf("Feature enabled: %v\n", response.Result)
 fmt.Printf("Reason: %s\n", response.Reason)
@@ -239,7 +239,7 @@ fmt.Printf("Metadata: %#v\n", response.Metadata)
 Load validation data separately, useful for complex applications:
 
 ```go
-prepared := switcherclient.GetSwitcher("").
+prepared := client.GetSwitcher("").
 	CheckValue("USER_123")
 
 prepared.Prepare("USER_FEATURE")
@@ -254,7 +254,7 @@ if prepared.IsOn() {
 Chain multiple validation strategies for comprehensive feature control:
 
 ```go
-isEnabled := switcherclient.GetSwitcher("PREMIUM_FEATURES").
+isEnabled := client.GetSwitcher("PREMIUM_FEATURES").
 	CheckValue("premium_user").
 	CheckNetwork("192.168.1.0/24").
 	DefaultResult(true).
@@ -271,7 +271,7 @@ if isEnabled {
 Subscribe to error notifications for robust error management:
 
 ```go
-switcherclient.SubscribeNotifyError(func(err error) {
+client.SubscribeNotifyError(func(err error) {
 	fmt.Printf("Switcher Error: %v\n", err)
 })
 ```
@@ -280,12 +280,12 @@ switcherclient.SubscribeNotifyError(func(err error) {
 
 #### Throttling
 ```go
-switcherclient.GetSwitcher("FEATURE01").Throttle(time.Second).IsOn()
+client.GetSwitcher("FEATURE01").Throttle(time.Second).IsOn()
 ```
 
 #### Hybrid Mode
 ```go
-switcherclient.GetSwitcher("FEATURE01").Remote().IsOn()
+client.GetSwitcher("FEATURE01").Remote().IsOn()
 ```
 
 ## Snapshot Management
@@ -295,7 +295,7 @@ switcherclient.GetSwitcher("FEATURE01").Remote().IsOn()
 Load snapshots from the API or local files:
 
 ```go
-version, err := switcherclient.LoadSnapshot(nil)
+version, err := client.LoadSnapshot(nil)
 if err != nil {
 	panic(err)
 }
@@ -304,7 +304,7 @@ fmt.Println(version)
 ```
 
 ```go
-version, err := switcherclient.LoadSnapshot(&switcherclient.LoadSnapshotOptions{
+version, err := client.LoadSnapshot(&client.LoadSnapshotOptions{
 	FetchRemote: true,
 })
 if err != nil {
@@ -315,7 +315,7 @@ fmt.Println(version)
 ```
 
 ```go
-_, err := switcherclient.LoadSnapshot(&switcherclient.LoadSnapshotOptions{
+_, err := client.LoadSnapshot(&client.LoadSnapshotOptions{
 	WatchSnapshot: true,
 })
 if err != nil {
@@ -328,13 +328,13 @@ if err != nil {
 Check your current snapshot version:
 
 ```go
-updated, err := switcherclient.CheckSnapshot()
+updated, err := client.CheckSnapshot()
 if err != nil {
 	panic(err)
 }
 
 fmt.Printf("Snapshot updated: %v\n", updated)
-fmt.Printf("Current snapshot version: %d\n", switcherclient.SnapshotVersion())
+fmt.Printf("Current snapshot version: %d\n", client.SnapshotVersion())
 ```
 
 ### Automated Updates
@@ -342,14 +342,14 @@ fmt.Printf("Current snapshot version: %d\n", switcherclient.SnapshotVersion())
 Schedule automatic snapshot updates for zero-latency local mode:
 
 ```go
-switcherclient.ScheduleSnapshotAutoUpdate(time.Minute, func(err error, updated bool) {
+client.ScheduleSnapshotAutoUpdate(time.Minute, func(err error, updated bool) {
 	if err != nil {
 		fmt.Printf("snapshot update error: %v\n", err)
 		return
 	}
 
 	if updated {
-		fmt.Printf("Snapshot updated to version: %d\n", switcherclient.SnapshotVersion())
+		fmt.Printf("Snapshot updated to version: %d\n", client.SnapshotVersion())
 	}
 })
 ```
@@ -357,7 +357,7 @@ switcherclient.ScheduleSnapshotAutoUpdate(time.Minute, func(err error, updated b
 ### Snapshot Monitoring
 
 ```go
-err := switcherclient.WatchSnapshot(switcherclient.WatchSnapshotCallback{
+err := client.WatchSnapshot(client.WatchSnapshotCallback{
 	Success: func() {
 		fmt.Println("snapshot loaded successfully")
 	},
@@ -377,33 +377,33 @@ if err != nil {
 The Go SDK provides test-oriented mocking capabilities adapted to Go idioms and safer state ownership.
 
 ```go
-client := switcherclient.NewClient(ctx)
-client.Assume("FEATURE01").True()
+sdk := client.NewClient(ctx)
+sdk.Assume("FEATURE01").True()
 
-assert.Equal(t, true, client.GetSwitcher("FEATURE01").IsOn())
+assert.Equal(t, true, sdk.GetSwitcher("FEATURE01").IsOn())
 ```
 
 ```go
-client.Assume("FEATURE01").True().
-	When(switcherclient.StrategyValue, []string{"guest", "admin"}).
-	When(switcherclient.StrategyNetwork, "10.0.0.3")
+sdk.Assume("FEATURE01").True().
+	When(client.StrategyValue, []string{"guest", "admin"}).
+	When(client.StrategyNetwork, "10.0.0.3")
 
-assert.Equal(t, true, client.GetSwitcher("FEATURE01").
+assert.Equal(t, true, sdk.GetSwitcher("FEATURE01").
 	CheckValue("guest").
 	CheckNetwork("10.0.0.3").
 	IsOn())
 ```
 
 ```go
-client.Forget("FEATURE01")
+sdk.Forget("FEATURE01")
 ```
 
 ```go
-client.Assume("FEATURE01").False().WithMetadata(map[string]any{
+sdk.Assume("FEATURE01").False().WithMetadata(map[string]any{
 	"message": "Feature is disabled",
 })
 
-response := client.GetSwitcher("FEATURE01").IsOnWithDetails()
+response := sdk.GetSwitcher("FEATURE01").IsOnWithDetails()
 assert.Equal(t, false, response.Result)
 assert.Equal(t, "Feature is disabled", response.Metadata["message"])
 ```
@@ -421,7 +421,7 @@ This area is under active development. The helper surface focuses on:
 Validate your feature flag configuration before deployment:
 
 ```go
-err := switcherclient.CheckSwitchers([]string{
+err := client.CheckSwitchers([]string{
 	"FEATURE_LOGIN",
 	"FEATURE_DASHBOARD",
 	"FEATURE_PAYMENTS",
@@ -447,3 +447,9 @@ Thank you for helping us improve the Switcher Client SDK for Go.
 - Go 1.25 or higher
 - A local Switcher API environment or test fixtures for development
 - Standard Go tooling (`go test`, `gofmt`)
+
+# AI Disclaimer
+
+This project was ported from [switcherapi/switcher-client-py](https://github.com/switcherapi/switcher-client-py) and adapted for Go using AI-assisted tools. We have thoroughly reviewed and tested all AI-generated contributions to ensure they meet our quality standards and align with our project's goals. We are committed to transparency about our use of AI and will continue to disclose any significant AI contributions in the future. 
+
+External contributions from the community are **equally valued and will be reviewed with the same standards, regardless of whether they were assisted by AI or not**. We encourage all contributors to disclose their use of AI tools in their contributions to maintain transparency and foster trust within our community.
