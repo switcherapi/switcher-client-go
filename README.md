@@ -77,7 +77,12 @@ func main() {
 	})
 
 	switcher := client.GetSwitcher("FEATURE_TOGGLE")
-	if switcher.IsOn() {
+	enabled, err := switcher.IsOn()
+	if err != nil {
+		panic(err)
+	}
+
+	if enabled {
 		fmt.Println("Feature is enabled!")
 	}
 }
@@ -221,7 +226,12 @@ The simplest way to check if a feature is enabled:
 ```go
 switcher := client.GetSwitcher("FEATURE_LOGIN_V2")
 
-if switcher.IsOn() {
+enabled, err := switcher.IsOn()
+if err != nil {
+	panic(err)
+}
+
+if enabled {
 	newLogin()
 } else {
 	legacyLogin()
@@ -233,7 +243,10 @@ if switcher.IsOn() {
 Get comprehensive information about the feature flag evaluation:
 
 ```go
-response := client.GetSwitcher("FEATURE_LOGIN_V2").IsOnWithDetails()
+response, err := client.GetSwitcher("FEATURE_LOGIN_V2").IsOnWithDetails()
+if err != nil {
+	panic(err)
+}
 
 fmt.Printf("Feature enabled: %v\n", response.Result)
 fmt.Printf("Reason: %s\n", response.Reason)
@@ -250,9 +263,16 @@ Load validation data separately, useful for complex applications:
 prepared := client.GetSwitcher("").
 	CheckValue("USER_123")
 
-prepared.Prepare("USER_FEATURE")
+if err := prepared.Prepare("USER_FEATURE"); err != nil {
+	panic(err)
+}
 
-if prepared.IsOn() {
+enabled, err := prepared.IsOn()
+if err != nil {
+	panic(err)
+}
+
+if enabled {
 	enableUserFeature()
 }
 ```
@@ -262,12 +282,16 @@ if prepared.IsOn() {
 Chain multiple validation strategies for comprehensive feature control:
 
 ```go
-isEnabled := client.GetSwitcher("PREMIUM_FEATURES").
+isEnabled, err := client.GetSwitcher("PREMIUM_FEATURES").
 	CheckValue("premium_user").
 	CheckNetwork("192.168.1.0/24").
 	DefaultResult(true).
 	Throttle(time.Second).
 	IsOn()
+
+if err != nil {
+	panic(err)
+}
 
 if isEnabled {
 	showPremiumDashboard()
@@ -288,12 +312,18 @@ client.SubscribeNotifyError(func(err error) {
 
 #### Throttling
 ```go
-client.GetSwitcher("FEATURE01").Throttle(time.Second).IsOn()
+_, err := client.GetSwitcher("FEATURE01").Throttle(time.Second).IsOn()
+if err != nil {
+	panic(err)
+}
 ```
 
 #### Hybrid Mode
 ```go
-client.GetSwitcher("FEATURE01").Remote().IsOn()
+_, err := client.GetSwitcher("FEATURE01").Remote().IsOn()
+if err != nil {
+	panic(err)
+}
 ```
 
 ## Snapshot Management
@@ -388,7 +418,9 @@ The Go SDK provides test-oriented mocking capabilities adapted to Go idioms and 
 sdk := client.NewClient(ctx)
 sdk.Assume("FEATURE01").True()
 
-assert.Equal(t, true, sdk.GetSwitcher("FEATURE01").IsOn())
+enabled, err := sdk.GetSwitcher("FEATURE01").IsOn()
+assert.NoError(t, err)
+assert.True(t, enabled)
 ```
 
 ```go
@@ -396,10 +428,12 @@ sdk.Assume("FEATURE01").True().
 	When(client.StrategyValue, []string{"guest", "admin"}).
 	When(client.StrategyNetwork, "10.0.0.3")
 
-assert.Equal(t, true, sdk.GetSwitcher("FEATURE01").
+enabled, err := sdk.GetSwitcher("FEATURE01").
 	CheckValue("guest").
 	CheckNetwork("10.0.0.3").
-	IsOn())
+	IsOn()
+assert.NoError(t, err)
+assert.True(t, enabled)
 ```
 
 ```go
@@ -411,7 +445,8 @@ sdk.Assume("FEATURE01").False().WithMetadata(map[string]any{
 	"message": "Feature is disabled",
 })
 
-response := sdk.GetSwitcher("FEATURE01").IsOnWithDetails()
+response, err := sdk.GetSwitcher("FEATURE01").IsOnWithDetails()
+assert.NoError(t, err)
 assert.Equal(t, false, response.Result)
 assert.Equal(t, "Feature is disabled", response.Metadata["message"])
 ```

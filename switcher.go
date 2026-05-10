@@ -6,15 +6,12 @@ import (
 )
 
 type Switcher struct {
-	client *Client
-	key    string
+	client  *Client
+	key     string
+	entries []criteriaEntry
 }
 
 func (s *Switcher) Validate() error {
-	if s == nil || s.client == nil {
-		return fmt.Errorf("something went wrong: client is not configured")
-	}
-
 	ctx := s.client.Context()
 	missingFields := make([]string, 0, 3)
 
@@ -42,4 +39,68 @@ func (s *Switcher) Validate() error {
 	}
 
 	return nil
+}
+
+func (s *Switcher) CheckValue(input string) *Switcher {
+	s.entries = appendFilteredEntries(s.entries, StrategyValue)
+	s.entries = append(s.entries, criteriaEntry{
+		Strategy: StrategyValue,
+		Input:    input,
+	})
+
+	return s
+}
+
+func (s *Switcher) Prepare(key string) error {
+	if strings.TrimSpace(key) != "" {
+		s.key = key
+	}
+
+	if err := s.Validate(); err != nil {
+		return err
+	}
+
+	token, err := s.client.ensureToken()
+	if err != nil {
+		return err
+	}
+
+	return missingTokenError(token)
+}
+
+func (s *Switcher) IsOn() (bool, error) {
+	result, err := s.IsOnWithDetails()
+	if err != nil {
+		return false, err
+	}
+
+	return result.Result, nil
+}
+
+func (s *Switcher) IsOnWithDetails() (ResultDetail, error) {
+	if err := s.Validate(); err != nil {
+		return ResultDetail{}, err
+	}
+
+	token, err := s.client.ensureToken()
+	if err != nil {
+		return ResultDetail{}, err
+	}
+
+	if err := missingTokenError(token); err != nil {
+		return ResultDetail{}, err
+	}
+
+	return s.client.checkCriteria(token, s, true)
+}
+
+func appendFilteredEntries(entries []criteriaEntry, strategy string) []criteriaEntry {
+	filtered := entries[:0]
+	for _, entry := range entries {
+		if entry.Strategy != strategy {
+			filtered = append(filtered, entry)
+		}
+	}
+
+	return filtered
 }
