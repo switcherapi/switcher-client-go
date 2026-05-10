@@ -44,11 +44,9 @@ func TestClientGetSwitcherReturnsCachedInstanceAfterConcurrentInsert(t *testing.
 	var wg sync.WaitGroup
 	var first *Switcher
 
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		first = client.GetSwitcher("switcher1")
-	}()
+	})
 
 	<-firstMissReached
 
@@ -108,11 +106,9 @@ func TestDefaultClientReturnsLoadedClientAfterConcurrentInitialization(t *testin
 
 	var got *Client
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
+	wg.Go(func() {
 		got = defaultClient()
-	}()
+	})
 
 	<-firstCreated
 
