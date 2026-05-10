@@ -9,6 +9,7 @@ A Go SDK for Switcher API
 
 [![Master CI](https://github.com/switcherapi/switcher-client-go/actions/workflows/master.yml/badge.svg)](https://github.com/switcherapi/switcher-client-go/actions/workflows/master.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=switcherapi_switcher-client-go&metric=alert_status)](https://sonarcloud.io/dashboard?id=switcherapi_switcher-client-go)
+[![Go Report Card](https://goreportcard.com/badge/github.com/switcherapi/switcher-client-go)](https://goreportcard.com/report/github.com/switcherapi/switcher-client-go)
 ![Go](https://img.shields.io/badge/go-1.25%2B-blue.svg)
 ![Status](https://img.shields.io/badge/status-under_development-orange.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
@@ -17,6 +18,12 @@ A Go SDK for Switcher API
 </div>
 
 ***
+
+![Switcher API: Go Client: Cloud-based Feature Flag API](https://github.com/switcherapi/switcherapi-assets/blob/master/logo/switcherapi_go_client.png)
+
+</div>
+
+---
 
 ## Table of Contents
 

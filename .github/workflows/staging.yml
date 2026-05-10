@@ -1,0 +1,46 @@
+name: Staging CI
+run-name: Staging - Go ${{ github.event.inputs.go }} / ${{ github.event.inputs.os }} by @${{ github.actor }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      go:
+        description: 'Go version'
+        required: true
+        default: '1.26.3'
+      os:
+        description: 'Operating System (ubuntu-20.04, ubuntu-latest, windows-latest)'
+        required: true
+        default: 'ubuntu-latest'
+      skip-lint:
+        description: 'Skip linting step'
+        required: false
+        default: 'false'
+
+jobs:
+  build-test:
+    name: Build & Test - Go ${{ github.event.inputs.go }} on ${{ github.event.inputs.os }}
+    runs-on: ${{ github.event.inputs.os }}
+
+    steps:
+    - name: Git checkout
+      uses: actions/checkout@v6
+      with:
+        fetch-depth: 0
+
+    - name: Set up Go
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ github.event.inputs.go }}
+
+    - name: Build
+      run: go build -v ./...
+
+    - name: Lint
+      if: ${{ github.event.inputs.skip-lint != 'true' }}
+      uses: golangci/golangci-lint-action@v9
+      with:
+        version: v2.12.2
+
+    - name: Test
+      run: go test -p 1 -v ./...
