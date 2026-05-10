@@ -1,83 +1,56 @@
 package client
 
-import "testing"
+import (
+	"testing"
 
-func TestContextWithOptionals(t *testing.T) {
-	BuildContext(Context{
-		Domain: "My Domain",
-		Options: ContextOptions{
-			Local:            true,
-			SnapshotLocation: "./tests/snapshots",
-		},
+	"github.com/stretchr/testify/assert"
+)
+
+func TestBuildContext(t *testing.T) {
+	t.Run("should preserve optional context options", func(t *testing.T) {
+		BuildContext(Context{
+			Domain: "My Domain",
+			Options: ContextOptions{
+				Local:            true,
+				SnapshotLocation: "./tests/snapshots",
+			},
+		})
+
+		options := defaultClient().context.Options
+
+		assert.True(t, options.Local, "expected Local option to be true")
+		assert.Equal(t, "./tests/snapshots", options.SnapshotLocation, "expected SnapshotLocation to be './tests/snapshots'")
 	})
 
-	options := defaultClient().context.Options
+	t.Run("should create fresh default options on rebuild", func(t *testing.T) {
+		BuildContext(Context{Domain: "First Domain"})
+		firstClient := defaultClient()
 
-	if !options.Local {
-		t.Fatalf("expected local option to be true")
-	}
+		firstClient.mu.Lock()
+		firstClient.context.Options.Local = true
+		firstClient.mu.Unlock()
 
-	if options.SnapshotLocation != "./tests/snapshots" {
-		t.Fatalf("expected snapshot location to be preserved, got %q", options.SnapshotLocation)
-	}
-}
+		BuildContext(Context{Domain: "Second Domain"})
+		secondClient := defaultClient()
 
-func TestBuildContextCreatesFreshDefaultOptions(t *testing.T) {
-	BuildContext(Context{Domain: "First Domain"})
-	firstClient := defaultClient()
-
-	firstClient.mu.Lock()
-	firstClient.context.Options.Local = true
-	firstClient.mu.Unlock()
-
-	BuildContext(Context{Domain: "Second Domain"})
-	secondClient := defaultClient()
-
-	if firstClient == secondClient {
-		t.Fatalf("expected BuildContext to replace the default client")
-	}
-
-	if secondClient.context.Options.Local {
-		t.Fatalf("expected second client to receive fresh default options")
-	}
-}
-
-func TestBuildContextAppliesDefaults(t *testing.T) {
-	BuildContext(Context{
-		Domain: "My Domain",
+		assert.NotSame(t, firstClient, secondClient, "expected different clients for different contexts")
+		assert.False(t, secondClient.context.Options.Local, "expected Local option to be false for the new client")
 	})
 
-	ctx := defaultClient().context
+	t.Run("should apply default values when omitted", func(t *testing.T) {
+		BuildContext(Context{
+			Domain: "My Domain",
+		})
 
-	if ctx.Environment != DefaultEnvironment {
-		t.Fatalf("expected default environment %q, got %q", DefaultEnvironment, ctx.Environment)
-	}
+		ctx := defaultClient().context
 
-	if !ctx.Options.RestrictRelay {
-		t.Fatalf("expected restrict relay default to be true")
-	}
-
-	if ctx.Options.RegexMaxBlacklist != DefaultRegexMaxBlacklist {
-		t.Fatalf("expected regex max blacklist default %d, got %d", DefaultRegexMaxBlacklist, ctx.Options.RegexMaxBlacklist)
-	}
-
-	if ctx.Options.RegexMaxTimeLimit != DefaultRegexMaxTimeLimit {
-		t.Fatalf("expected regex max time limit default %v, got %v", DefaultRegexMaxTimeLimit, ctx.Options.RegexMaxTimeLimit)
-	}
-
-	if ctx.Options.Remote.ConnectTimeout != DefaultRemoteConnectTimeout {
-		t.Fatalf("expected default connect timeout %v, got %v", DefaultRemoteConnectTimeout, ctx.Options.Remote.ConnectTimeout)
-	}
-
-	if ctx.Options.Remote.ReadTimeout != DefaultRemoteReadTimeout {
-		t.Fatalf("expected default read timeout %v, got %v", DefaultRemoteReadTimeout, ctx.Options.Remote.ReadTimeout)
-	}
-
-	if ctx.Options.Remote.WriteTimeout != DefaultRemoteWriteTimeout {
-		t.Fatalf("expected default write timeout %v, got %v", DefaultRemoteWriteTimeout, ctx.Options.Remote.WriteTimeout)
-	}
-
-	if ctx.Options.Remote.PoolTimeout != DefaultRemotePoolTimeout {
-		t.Fatalf("expected default pool timeout %v, got %v", DefaultRemotePoolTimeout, ctx.Options.Remote.PoolTimeout)
-	}
+		assert.Equal(t, DefaultEnvironment, ctx.Environment)
+		assert.True(t, ctx.Options.RestrictRelay)
+		assert.Equal(t, DefaultRegexMaxBlacklist, ctx.Options.RegexMaxBlacklist)
+		assert.Equal(t, DefaultRegexMaxTimeLimit, ctx.Options.RegexMaxTimeLimit)
+		assert.Equal(t, DefaultRemoteConnectTimeout, ctx.Options.Remote.ConnectTimeout)
+		assert.Equal(t, DefaultRemoteReadTimeout, ctx.Options.Remote.ReadTimeout)
+		assert.Equal(t, DefaultRemoteWriteTimeout, ctx.Options.Remote.WriteTimeout)
+		assert.Equal(t, DefaultRemotePoolTimeout, ctx.Options.Remote.PoolTimeout)
+	})
 }

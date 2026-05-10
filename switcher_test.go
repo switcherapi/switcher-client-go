@@ -1,66 +1,49 @@
 package client
 
-import "testing"
+import (
+	"testing"
 
-func TestSwitcherValidateRequiresRemoteFields(t *testing.T) {
-	BuildContext(Context{
-		Domain: "My Domain",
+	"github.com/stretchr/testify/assert"
+)
+
+func TestSwitcherValidate(t *testing.T) {
+	t.Run("should return an error when the client is not configured", func(t *testing.T) {
+		var switcher *Switcher
+
+		err := switcher.Validate()
+		assert.EqualError(t, err, "something went wrong: client is not configured")
 	})
 
-	err := GetSwitcher("").Validate()
-	if err == nil {
-		t.Fatalf("expected validation error")
-	}
+	t.Run("should return an error when remote fields are missing", func(t *testing.T) {
+		BuildContext(Context{
+			Domain: "My Domain",
+		})
 
-	expected := "something went wrong: missing or empty required fields (url, component, api_key)"
-	if err.Error() != expected {
-		t.Fatalf("expected %q, got %q", expected, err.Error())
-	}
-}
-
-func TestSwitcherValidateWithoutConfiguredClient(t *testing.T) {
-	var switcher *Switcher
-
-	err := switcher.Validate()
-	if err == nil {
-		t.Fatalf("expected validation error")
-	}
-
-	expected := "something went wrong: client is not configured"
-	if err.Error() != expected {
-		t.Fatalf("expected %q, got %q", expected, err.Error())
-	}
-}
-
-func TestSwitcherValidateRequiresKeyWhenRemoteContextIsValid(t *testing.T) {
-	client := NewClient(Context{
-		Domain:    "My Domain",
-		URL:       "https://api.switcherapi.com",
-		APIKey:    "[YOUR_API_KEY]",
-		Component: "MyApp",
+		err := GetSwitcher("").Validate()
+		assert.EqualError(t, err, "something went wrong: missing or empty required fields (url, component, api_key)")
 	})
 
-	err := client.GetSwitcher("").Validate()
-	if err == nil {
-		t.Fatalf("expected validation error")
-	}
+	t.Run("should return an error when the key is missing", func(t *testing.T) {
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       "https://api.switcherapi.com",
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+		})
 
-	expected := "something went wrong: missing key field"
-	if err.Error() != expected {
-		t.Fatalf("expected %q, got %q", expected, err.Error())
-	}
-}
-
-func TestSwitcherValidateSucceedsWhenRemoteContextAndKeyAreValid(t *testing.T) {
-	client := NewClient(Context{
-		Domain:    "My Domain",
-		URL:       "https://api.switcherapi.com",
-		APIKey:    "[YOUR_API_KEY]",
-		Component: "MyApp",
+		err := client.GetSwitcher("").Validate()
+		assert.EqualError(t, err, "something went wrong: missing key field")
 	})
 
-	err := client.GetSwitcher("FEATURE_LOGIN_V2").Validate()
-	if err != nil {
-		t.Fatalf("expected validation to succeed, got %v", err)
-	}
+	t.Run("should succeed when remote context and key are valid", func(t *testing.T) {
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       "https://api.switcherapi.com",
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+		})
+
+		err := client.GetSwitcher("FEATURE_LOGIN_V2").Validate()
+		assert.NoError(t, err)
+	})
 }

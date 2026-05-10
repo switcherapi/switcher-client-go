@@ -4,125 +4,111 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestClientGetSwitcherFromCache(t *testing.T) {
-	BuildContext(Context{
-		Domain: "My Domain",
+func TestClientGetSwitcher(t *testing.T) {
+	t.Run("should return cached instance for the same key", func(t *testing.T) {
+		BuildContext(Context{
+			Domain: "My Domain",
+		})
+
+		switcher1 := GetSwitcher("switcher1")
+		switcher2 := GetSwitcher("switcher1")
+		switcher3 := GetSwitcher("")
+
+		assert.Same(t, switcher1, switcher2, "expected the same instance for the same key")
+		assert.NotSame(t, switcher1, switcher3, "expected different instances for different keys")
 	})
 
-	switcher1 := GetSwitcher("switcher1")
-	switcher2 := GetSwitcher("switcher1")
-	switcher3 := GetSwitcher("")
+	t.Run("should return the cached instance after concurrent insert", func(t *testing.T) {
+		client := NewClient(Context{Domain: "My Domain"})
 
-	if switcher1 != switcher2 {
-		t.Fatalf("expected cached switcher instance for the same key")
-	}
+		blockFirst := make(chan struct{})
+		firstMissReached := make(chan struct{})
+		var hookCalls atomic.Int32
 
-	if switcher1 == switcher3 {
-		t.Fatalf("expected empty-key switcher to be a distinct instance")
-	}
-}
-
-func TestClientGetSwitcherReturnsCachedInstanceAfterConcurrentInsert(t *testing.T) {
-	client := NewClient(Context{Domain: "My Domain"})
-
-	blockFirst := make(chan struct{})
-	firstMissReached := make(chan struct{})
-	var hookCalls atomic.Int32
-
-	getSwitcherAfterReadMissHook = func() {
-		if hookCalls.Add(1) == 1 {
-			close(firstMissReached)
-			<-blockFirst
+		getSwitcherAfterReadMissHook = func() {
+			if hookCalls.Add(1) == 1 {
+				close(firstMissReached)
+				<-blockFirst
+			}
 		}
-	}
-	defer func() {
-		getSwitcherAfterReadMissHook = nil
-	}()
+		defer func() {
+			getSwitcherAfterReadMissHook = nil
+		}()
 
-	var wg sync.WaitGroup
-	var first *Switcher
+		var wg sync.WaitGroup
+		var first *Switcher
 
-	wg.Go(func() {
-		first = client.GetSwitcher("switcher1")
+		wg.Go(func() {
+			first = client.GetSwitcher("switcher1")
+		})
+
+		<-firstMissReached
+
+		second := client.GetSwitcher("switcher1")
+		close(blockFirst)
+		wg.Wait()
+
+		assert.Same(t, first, second, "expected the same instance after concurrent insert")
+		assert.Len(t, client.switchers, 1, "expected only one instance in the cache")
+	})
+}
+
+func TestDefaultClient(t *testing.T) {
+	t.Run("should initialize the singleton when unset", func(t *testing.T) {
+		savedClient := globalClient.Load()
+		savedHook := defaultClientBeforeCompareAndSwapHook
+		globalClient.Store(nil)
+		defaultClientBeforeCompareAndSwapHook = nil
+		defer func() {
+			globalClient.Store(savedClient)
+			defaultClientBeforeCompareAndSwapHook = savedHook
+		}()
+
+		client := defaultClient()
+
+		assert.NotNil(t, client)
+		assert.Same(t, client, globalClient.Load(), "expected the singleton to be initialized")
 	})
 
-	<-firstMissReached
+	t.Run("should return the loaded client after concurrent initialization", func(t *testing.T) {
+		savedClient := globalClient.Load()
+		savedHook := defaultClientBeforeCompareAndSwapHook
+		globalClient.Store(nil)
+		defer func() {
+			globalClient.Store(savedClient)
+			defaultClientBeforeCompareAndSwapHook = savedHook
+		}()
 
-	second := client.GetSwitcher("switcher1")
-	close(blockFirst)
-	wg.Wait()
+		blockFirst := make(chan struct{})
+		firstCreated := make(chan struct{})
+		var hookCalls atomic.Int32
 
-	if first != second {
-		t.Fatalf("expected concurrent callers to receive the same cached switcher instance")
-	}
-
-	if len(client.switchers) != 1 {
-		t.Fatalf("expected exactly one cached switcher, got %d", len(client.switchers))
-	}
-}
-
-func TestDefaultClientInitializesSingletonWhenUnset(t *testing.T) {
-	savedClient := globalClient.Load()
-	savedHook := defaultClientBeforeCompareAndSwapHook
-	globalClient.Store(nil)
-	defaultClientBeforeCompareAndSwapHook = nil
-	defer func() {
-		globalClient.Store(savedClient)
-		defaultClientBeforeCompareAndSwapHook = savedHook
-	}()
-
-	client := defaultClient()
-
-	if client == nil {
-		t.Fatalf("expected default client to be initialized")
-	}
-
-	if globalClient.Load() != client {
-		t.Fatalf("expected initialized client to be stored globally")
-	}
-}
-
-func TestDefaultClientReturnsLoadedClientAfterConcurrentInitialization(t *testing.T) {
-	savedClient := globalClient.Load()
-	savedHook := defaultClientBeforeCompareAndSwapHook
-	globalClient.Store(nil)
-	defer func() {
-		globalClient.Store(savedClient)
-		defaultClientBeforeCompareAndSwapHook = savedHook
-	}()
-
-	blockFirst := make(chan struct{})
-	firstCreated := make(chan struct{})
-	var hookCalls atomic.Int32
-
-	defaultClientBeforeCompareAndSwapHook = func() {
-		if hookCalls.Add(1) == 1 {
-			close(firstCreated)
-			<-blockFirst
+		defaultClientBeforeCompareAndSwapHook = func() {
+			if hookCalls.Add(1) == 1 {
+				close(firstCreated)
+				<-blockFirst
+			}
 		}
-	}
 
-	var got *Client
-	var wg sync.WaitGroup
-	wg.Go(func() {
-		got = defaultClient()
+		var got *Client
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			got = defaultClient()
+		})
+
+		<-firstCreated
+
+		expected := NewClient(Context{Domain: "My Domain"})
+		globalClient.Store(expected)
+
+		close(blockFirst)
+		wg.Wait()
+
+		assert.Same(t, expected, got, "expected the loaded client after concurrent initialization")
+		assert.Same(t, expected, globalClient.Load(), "expected the global client to be the same as the loaded client")
 	})
-
-	<-firstCreated
-
-	expected := NewClient(Context{Domain: "My Domain"})
-	globalClient.Store(expected)
-
-	close(blockFirst)
-	wg.Wait()
-
-	if got != expected {
-		t.Fatalf("expected fallback path to return the concurrently stored client")
-	}
-
-	if globalClient.Load() != expected {
-		t.Fatalf("expected concurrently stored client to remain the global singleton")
-	}
 }
