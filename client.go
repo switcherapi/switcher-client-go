@@ -13,6 +13,10 @@ type Client struct {
 	mu        sync.RWMutex
 	context   Context
 	switchers map[string]*Switcher
+
+	authMu       sync.Mutex
+	authToken    string
+	authTokenExp int64
 }
 
 func NewClient(ctx Context) *Client {
