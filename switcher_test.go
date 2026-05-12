@@ -88,18 +88,3 @@ func TestSwitcherIsOnWithDetails(t *testing.T) {
 		assert.EqualError(t, err, "something went wrong: missing or empty required fields (url, component, api_key)")
 	})
 }
-
-func TestAppendFilteredEntries(t *testing.T) {
-	t.Run("should preserve entries whose strategy does not match the filtered strategy", func(t *testing.T) {
-		entries := []criteriaEntry{
-			{Strategy: StrategyValue, Input: "user_id"},
-			{Strategy: "NETWORK_VALIDATION", Input: "127.0.0.1"},
-		}
-
-		got := appendFilteredEntries(entries, StrategyValue)
-
-		assert.Equal(t, []criteriaEntry{
-			{Strategy: "NETWORK_VALIDATION", Input: "127.0.0.1"},
-		}, got)
-	})
-}

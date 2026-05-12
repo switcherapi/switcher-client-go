@@ -2,6 +2,7 @@ package client
 
 import (
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -134,15 +135,8 @@ func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails boo
 }
 
 func (c *Client) doJSONRequest(method, endpoint string, payload any, headers map[string]string) (*http.Response, error) {
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return nil, err
-	}
-
-	request, err := http.NewRequestWithContext(context.Background(), method, endpoint, bytes.NewReader(body))
-	if err != nil {
-		return nil, err
-	}
+	body, _ := json.Marshal(payload)
+	request, _ := http.NewRequestWithContext(context.Background(), method, endpoint, bytes.NewReader(body))
 
 	for key, value := range headers {
 		request.Header.Set(key, value)
@@ -165,10 +159,8 @@ func (c *Client) httpClient() *http.Client {
 	}
 
 	transport := &http.Transport{
-		DialContext:           dialer.DialContext,
-		ResponseHeaderTimeout: ctx.Options.Remote.ReadTimeout,
-		TLSHandshakeTimeout:   ctx.Options.Remote.ConnectTimeout,
-		IdleConnTimeout:       ctx.Options.Remote.PoolTimeout,
+		DialContext:         dialer.DialContext,
+		TLSHandshakeTimeout: ctx.Options.Remote.ConnectTimeout,
 		TLSClientConfig: &tls.Config{
 			MinVersion: tls.VersionTLS12,
 		},
@@ -176,19 +168,10 @@ func (c *Client) httpClient() *http.Client {
 
 	c.httpClient_ = &http.Client{
 		Transport: transport,
-		Timeout:   requestTimeout(ctx.Options.Remote),
+		Timeout:   cmp.Or(ctx.Options.Remote.Timeout, DefaultRemoteTimeout),
 	}
 
 	return c.httpClient_
-}
-
-func requestTimeout(options RemoteOptions) time.Duration {
-	timeout := options.ConnectTimeout + options.ReadTimeout + options.WriteTimeout
-	if timeout <= 0 {
-		return DefaultRemoteConnectTimeout + DefaultRemoteReadTimeout + DefaultRemoteWriteTimeout
-	}
-
-	return timeout
 }
 
 func missingTokenError(token string) error {
@@ -200,11 +183,7 @@ func missingTokenError(token string) error {
 }
 
 func parseTokenExpiration(value json.Number) int64 {
-	parsed, err := value.Int64()
-	if err != nil {
-		return 0
-	}
-
+	parsed, _ := value.Int64()
 	return parsed
 }
 

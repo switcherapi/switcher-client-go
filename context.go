@@ -11,17 +11,13 @@ const (
 	DefaultRegexMaxBlacklist    = 100
 	DefaultRegexMaxTimeLimit    = 3 * time.Second
 	DefaultRemoteConnectTimeout = 300 * time.Millisecond
-	DefaultRemoteReadTimeout    = 5 * time.Second
-	DefaultRemoteWriteTimeout   = 5 * time.Second
-	DefaultRemotePoolTimeout    = 5 * time.Second
+	DefaultRemoteTimeout        = 5 * time.Second
 )
 
 type RemoteOptions struct {
 	CertPath       string
 	ConnectTimeout time.Duration
-	ReadTimeout    time.Duration
-	WriteTimeout   time.Duration
-	PoolTimeout    time.Duration
+	Timeout        time.Duration
 }
 
 type ContextOptions struct {
@@ -78,16 +74,8 @@ func (o RemoteOptions) withDefaults() RemoteOptions {
 		o.ConnectTimeout = DefaultRemoteConnectTimeout
 	}
 
-	if o.ReadTimeout == 0 {
-		o.ReadTimeout = DefaultRemoteReadTimeout
-	}
-
-	if o.WriteTimeout == 0 {
-		o.WriteTimeout = DefaultRemoteWriteTimeout
-	}
-
-	if o.PoolTimeout == 0 {
-		o.PoolTimeout = DefaultRemotePoolTimeout
+	if o.Timeout == 0 {
+		o.Timeout = DefaultRemoteTimeout
 	}
 
 	return o

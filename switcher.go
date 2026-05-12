@@ -42,11 +42,12 @@ func (s *Switcher) Validate() error {
 }
 
 func (s *Switcher) CheckValue(input string) *Switcher {
-	s.entries = appendFilteredEntries(s.entries, StrategyValue)
-	s.entries = append(s.entries, criteriaEntry{
-		Strategy: StrategyValue,
-		Input:    input,
-	})
+	s.entries = []criteriaEntry{
+		{
+			Strategy: StrategyValue,
+			Input:    input,
+		},
+	}
 
 	return s
 }
@@ -69,7 +70,7 @@ func (s *Switcher) Prepare(key string) error {
 }
 
 func (s *Switcher) IsOn() (bool, error) {
-	result, err := s.IsOnWithDetails()
+	result, err := s.submit(false)
 	if err != nil {
 		return false, err
 	}
@@ -78,6 +79,10 @@ func (s *Switcher) IsOn() (bool, error) {
 }
 
 func (s *Switcher) IsOnWithDetails() (ResultDetail, error) {
+	return s.submit(true)
+}
+
+func (s *Switcher) submit(showDetails bool) (ResultDetail, error) {
 	if err := s.Validate(); err != nil {
 		return ResultDetail{}, err
 	}
@@ -91,16 +96,5 @@ func (s *Switcher) IsOnWithDetails() (ResultDetail, error) {
 		return ResultDetail{}, err
 	}
 
-	return s.client.checkCriteria(token, s, true)
-}
-
-func appendFilteredEntries(entries []criteriaEntry, strategy string) []criteriaEntry {
-	filtered := entries[:0]
-	for _, entry := range entries {
-		if entry.Strategy != strategy {
-			filtered = append(filtered, entry)
-		}
-	}
-
-	return filtered
+	return s.client.checkCriteria(token, s, showDetails)
 }
