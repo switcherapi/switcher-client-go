@@ -29,11 +29,29 @@ A Go SDK for Switcher API
 
 - [Quick Start](#quick-start)
 - [Installation](#installation)
+	- [System Requirements](#system-requirements)
 - [Configuration](#configuration)
+	- [Basic Setup](#basic-setup)
+	- [Advanced Configuration](#advanced-configuration)
+	- [Security Features](#security-features)
 - [Usage Examples](#usage-examples)
+	- [Basic Feature Flag Checking](#basic-feature-flag-checking)
+	- [Detailed Response Information](#detailed-response-information)
+	- [Strategy-Based Feature Flags](#strategy-based-feature-flags)
+	- [Error Handling](#error-handling)
 - [Advanced Features](#advanced-features)
+	- [Throttling](#throttling)
+	- [Hybrid Mode](#hybrid-mode)
+	- [Circuit Breaker](#circuit-breaker-silent-mode)
 - [Snapshot Management](#snapshot-management)
+	- [Loading Snapshots](#loading-snapshots)
+	- [Version Management](#version-management)
+	- [Automated Updates](#automated-updates)
+	- [Snapshot Monitoring](#snapshot-monitoring)
 - [Testing & Development](#testing--development)
+	- [Built-in Mocking](#built-in-mocking)
+	- [Test Helpers](#test-helpers)
+	- [Configuration Validation](#configuration-validation)
 - [Contributing](#contributing)
 
 ---
@@ -162,7 +180,7 @@ func main() {
 			Logger:                     true,
 			Freeze:                     true,
 			SnapshotLocation:           "./snapshot/",
-			SnapshotAutoUpdateInterval: 3 * time.Second,
+			SnapshotAutoUpdateInterval: 30 * time.Second,
 			SilentMode:                 5 * time.Minute,
 			RestrictRelay:              true,
 			ThrottleMaxWorkers:         2,
@@ -324,6 +342,29 @@ _, err := client.GetSwitcher("FEATURE01").Remote().IsOn()
 if err != nil {
 	panic(err)
 }
+```
+
+#### Circuit Breaker: Silent Mode
+
+This feature allows you to specify how long the client SDK should attempt to restore connectivity in case of remote API failures.
+
+When the API is unavailable, the SDK will automatically operate in silent mode, evaluating Switchers using a local snapshot. It is important to note that any Switcher Key configured must be able to resolve without external dependencies (e.g., Switcher Relay).
+
+Make sure to configure the scheduled snapshot auto-update to keep the local snapshot up to date with the remote API.
+
+Here is an example - in-memory snapshot with auto-update every 30 seconds:
+
+```go
+client.BuildContext(client.Context{
+	Domain:      "My Domain",
+	URL:         "https://api.switcherapi.com",
+	APIKey:      "[YOUR_API_KEY]",
+	Component:   "MyApp",
+	Options: client.ContextOptions{
+		SnapshotAutoUpdateInterval: 30 * time.Second,
+		SilentMode:                 5 * time.Minute,
+	},
+})
 ```
 
 ## Snapshot Management
