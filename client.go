@@ -1,6 +1,7 @@
 package client
 
 import (
+	"net/http"
 	"sync"
 	"sync/atomic"
 )
@@ -17,6 +18,9 @@ type Client struct {
 	authMu       sync.Mutex
 	authToken    string
 	authTokenExp int64
+
+	httpClientMu sync.Mutex
+	httpClient_  *http.Client
 }
 
 func NewClient(ctx Context) *Client {

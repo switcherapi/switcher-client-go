@@ -94,11 +94,16 @@ func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails boo
 	query.Set("showReason", strings.ToLower(strconvFormatBool(showDetails)))
 	query.Set("key", switcher.key)
 
+	entries := switcher.entries
+	if entries == nil {
+		entries = []criteriaEntry{}
+	}
+
 	response, err := c.doJSONRequest(
 		http.MethodPost,
 		endpoint+"?"+query.Encode(),
 		map[string]any{
-			"entry": switcher.entries,
+			"entry": entries,
 		},
 		map[string]string{
 			"Authorization": "Bearer " + token,
@@ -147,6 +152,13 @@ func (c *Client) doJSONRequest(method, endpoint string, payload any, headers map
 }
 
 func (c *Client) httpClient() *http.Client {
+	c.httpClientMu.Lock()
+	defer c.httpClientMu.Unlock()
+
+	if c.httpClient_ != nil {
+		return c.httpClient_
+	}
+
 	ctx := c.Context()
 	dialer := &net.Dialer{
 		Timeout: ctx.Options.Remote.ConnectTimeout,
@@ -162,10 +174,12 @@ func (c *Client) httpClient() *http.Client {
 		},
 	}
 
-	return &http.Client{
+	c.httpClient_ = &http.Client{
 		Transport: transport,
 		Timeout:   requestTimeout(ctx.Options.Remote),
 	}
+
+	return c.httpClient_
 }
 
 func requestTimeout(options RemoteOptions) time.Duration {
