@@ -189,9 +189,7 @@ func main() {
 			Remote: client.RemoteOptions{
 				CertPath:       "./certs/ca.pem",
 				ConnectTimeout: 300 * time.Millisecond,
-				ReadTimeout:    5 * time.Second,
-				WriteTimeout:   5 * time.Second,
-				PoolTimeout:    5 * time.Second,
+				Timeout:        5 * time.Second,
 			},
 		},
 	})
@@ -223,9 +221,7 @@ func main() {
 |--------|------|-------------|---------|
 | `CertPath` | `string` | Path to custom certificate for secure API connections | `""` |
 | `ConnectTimeout` | `time.Duration` | Max time to establish a remote connection before failing fast | `300ms` |
-| `ReadTimeout` | `time.Duration` | Max time to wait for remote response data | `5s` |
-| `WriteTimeout` | `time.Duration` | Max time to send remote request data | `5s` |
-| `PoolTimeout` | `time.Duration` | Max time to wait for a pooled HTTP connection | `5s` |
+| `Timeout` | `time.Duration` | Max time for remote request/response and idle connection reuse | `5s` |
 
 **Under development:** transport errors are normalized into typed SDK errors, and silent mode uses the configured remote timeouts to fail fast and switch back to local evaluation.
 

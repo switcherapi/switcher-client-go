@@ -12,11 +12,15 @@ import (
 
 func TestSwitcherRemoteEvaluation(t *testing.T) {
 	t.Run("should call the remote API with success", func(t *testing.T) {
+		var captured map[string]any
 		server := newRemoteTestServer(t, remoteTestHandlers{
 			authStatus:     http.StatusOK,
 			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
 			criteriaStatus: http.StatusOK,
 			criteriaBody:   map[string]any{"result": true},
+			onCriteriaRequest: func(body map[string]any, _ *http.Request) {
+				captured = body
+			},
 		})
 		defer server.Close()
 
@@ -26,6 +30,9 @@ func TestSwitcherRemoteEvaluation(t *testing.T) {
 
 		assert.NoError(t, err)
 		assert.True(t, got)
+		assert.Equal(t, map[string]any{
+			"entry": []any{},
+		}, captured)
 	})
 
 	t.Run("should send input parameters to the remote criteria endpoint", func(t *testing.T) {
@@ -55,6 +62,28 @@ func TestSwitcherRemoteEvaluation(t *testing.T) {
 				},
 			},
 		}, captured)
+	})
+
+	t.Run("should return response from the remote API without requesting details", func(t *testing.T) {
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			criteriaStatus: http.StatusOK,
+			criteriaBody: map[string]any{
+				"result": true,
+			},
+			onCriteriaRequest: func(_ map[string]any, request *http.Request) {
+				assert.Equal(t, "false", request.URL.Query().Get("showReason"))
+			},
+		})
+		defer server.Close()
+
+		client := newRemoteTestClient(server.URL)
+
+		got, err := client.GetSwitcher("MY_SWITCHER").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
 	})
 
 	t.Run("should return detailed response from the remote API", func(t *testing.T) {
@@ -88,6 +117,31 @@ func TestSwitcherRemoteEvaluation(t *testing.T) {
 		}, got.ToMap())
 	})
 
+	t.Run("should request details only for the detailed call on the same switcher", func(t *testing.T) {
+		showReasonValues := make([]string, 0, 2)
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			criteriaStatus: http.StatusOK,
+			criteriaBody:   map[string]any{"result": true, "reason": "Success"},
+			onCriteriaRequest: func(_ map[string]any, request *http.Request) {
+				showReasonValues = append(showReasonValues, request.URL.Query().Get("showReason"))
+			},
+		})
+		defer server.Close()
+
+		client := newRemoteTestClient(server.URL)
+		switcher := client.GetSwitcher("MY_SWITCHER")
+
+		_, detailErr := switcher.IsOnWithDetails()
+		got, err := switcher.IsOn()
+
+		assert.NoError(t, detailErr)
+		assert.NoError(t, err)
+		assert.True(t, got)
+		assert.Equal(t, []string{"true", "false"}, showReasonValues)
+	})
+
 	t.Run("should authenticate during prepare and reuse the prepared key", func(t *testing.T) {
 		server := newRemoteTestServer(t, remoteTestHandlers{
 			authStatus:     http.StatusOK,
@@ -109,6 +163,94 @@ func TestSwitcherRemoteEvaluation(t *testing.T) {
 		assert.NoError(t, err)
 		assert.NoError(t, evalErr)
 		assert.True(t, got)
+	})
+
+	t.Run("should keep only the latest value check input", func(t *testing.T) {
+		var captured map[string]any
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			criteriaStatus: http.StatusOK,
+			criteriaBody:   map[string]any{"result": true},
+			onCriteriaRequest: func(body map[string]any, _ *http.Request) {
+				captured = body
+			},
+		})
+		defer server.Close()
+
+		client := newRemoteTestClient(server.URL)
+
+		got, err := client.GetSwitcher("MY_SWITCHER").CheckValue("first").CheckValue("second").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+		assert.Equal(t, map[string]any{
+			"entry": []any{
+				map[string]any{
+					"strategy": StrategyValue,
+					"input":    "second",
+				},
+			},
+		}, captured)
+	})
+
+	t.Run("should reuse the token while a millisecond expiration is still valid", func(t *testing.T) {
+		authRequests := 0
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).UnixMilli()},
+			criteriaStatus: http.StatusOK,
+			criteriaBody:   map[string]any{"result": true},
+			onAuthRequest: func(_ *http.Request) {
+				authRequests++
+			},
+		})
+		defer server.Close()
+
+		client := newRemoteTestClient(server.URL)
+		switcher := client.GetSwitcher("MY_SWITCHER")
+
+		first, firstErr := switcher.IsOn()
+		second, secondErr := switcher.IsOn()
+
+		assert.NoError(t, firstErr)
+		assert.NoError(t, secondErr)
+		assert.True(t, first)
+		assert.True(t, second)
+		assert.Equal(t, 1, authRequests)
+	})
+
+	t.Run("should renew the token when the cached expiration is zero", func(t *testing.T) {
+		authRequests := 0
+		mux := http.NewServeMux()
+		mux.HandleFunc("/criteria/auth", func(writer http.ResponseWriter, request *http.Request) {
+			authRequests++
+
+			payload := map[string]any{"token": "[new_token]", "exp": time.Now().Add(time.Hour).Unix()}
+			if authRequests == 1 {
+				payload = map[string]any{"token": "[expired_token]", "exp": 0}
+			}
+
+			writeJSONResponse(t, writer, http.StatusOK, payload)
+		})
+		mux.HandleFunc("/criteria", func(writer http.ResponseWriter, request *http.Request) {
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{"result": true})
+		})
+
+		server := httptest.NewServer(mux)
+		defer server.Close()
+
+		client := newRemoteTestClient(server.URL)
+		switcher := client.GetSwitcher("MY_SWITCHER")
+
+		first, firstErr := switcher.IsOn()
+		second, secondErr := switcher.IsOn()
+
+		assert.NoError(t, firstErr)
+		assert.NoError(t, secondErr)
+		assert.True(t, first)
+		assert.True(t, second)
+		assert.Equal(t, 2, authRequests)
 	})
 
 	t.Run("should return an auth error when the API key is invalid", func(t *testing.T) {
@@ -237,101 +379,6 @@ func TestSwitcherRemoteEvaluation(t *testing.T) {
 	})
 }
 
-func TestClientDoJSONRequest(t *testing.T) {
-	t.Run("should return an error when the payload cannot be marshaled", func(t *testing.T) {
-		client := newRemoteTestClient("https://api.switcherapi.com")
-
-		response, err := client.doJSONRequest(
-			http.MethodPost,
-			"https://api.switcherapi.com/criteria/auth",
-			map[string]any{
-				"invalid": func() {},
-			},
-			map[string]string{
-				"Content-Type": "application/json",
-			},
-		)
-
-		assert.Nil(t, response)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "unsupported type")
-	})
-
-	t.Run("should return an error when the request cannot be created", func(t *testing.T) {
-		client := newRemoteTestClient("https://api.switcherapi.com")
-
-		response, err := client.doJSONRequest(
-			http.MethodPost,
-			"://bad-url",
-			map[string]any{
-				"domain": "My Domain",
-			},
-			map[string]string{
-				"Content-Type": "application/json",
-			},
-		)
-
-		assert.Nil(t, response)
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "missing protocol scheme")
-	})
-}
-
-func TestRequestTimeout(t *testing.T) {
-	t.Run("should return the default combined timeout when configured timeout is zero", func(t *testing.T) {
-		got := requestTimeout(RemoteOptions{})
-
-		assert.Equal(
-			t,
-			DefaultRemoteConnectTimeout+DefaultRemoteReadTimeout+DefaultRemoteWriteTimeout,
-			got,
-		)
-	})
-
-	t.Run("should return the default combined timeout when configured timeout is negative", func(t *testing.T) {
-		got := requestTimeout(RemoteOptions{
-			ConnectTimeout: -time.Second,
-		})
-
-		assert.Equal(
-			t,
-			DefaultRemoteConnectTimeout+DefaultRemoteReadTimeout+DefaultRemoteWriteTimeout,
-			got,
-		)
-	})
-}
-
-func TestParseTokenExpiration(t *testing.T) {
-	t.Run("should parse the expiration from a json number", func(t *testing.T) {
-		got := parseTokenExpiration(json.Number("1700000000"))
-
-		assert.Equal(t, int64(1700000000), got)
-	})
-
-	t.Run("should return zero when the json number is invalid", func(t *testing.T) {
-		got := parseTokenExpiration(json.Number("invalid"))
-
-		assert.Zero(t, got)
-	})
-}
-
-func TestTokenExpired(t *testing.T) {
-	t.Run("should treat zero expiration as expired", func(t *testing.T) {
-		assert.True(t, tokenExpired(0))
-	})
-
-	t.Run("should compare millisecond expirations against the current time", func(t *testing.T) {
-		assert.False(t, tokenExpired(time.Now().Add(time.Minute).UnixMilli()))
-		assert.True(t, tokenExpired(time.Now().Add(-time.Minute).UnixMilli()))
-	})
-}
-
-func TestStrconvFormatBool(t *testing.T) {
-	t.Run("should return false when the input is false", func(t *testing.T) {
-		assert.Equal(t, "false", strconvFormatBool(false))
-	})
-}
-
 type remoteTestHandlers struct {
 	authStatus        int
 	authBody          map[string]any
@@ -339,6 +386,7 @@ type remoteTestHandlers struct {
 	criteriaStatus    int
 	criteriaBody      map[string]any
 	criteriaRawBody   *string
+	onAuthRequest     func(request *http.Request)
 	onCriteriaRequest func(body map[string]any, request *http.Request)
 }
 
@@ -357,6 +405,9 @@ func newRemoteTestServer(t *testing.T, handlers remoteTestHandlers) *httptest.Se
 	mux := http.NewServeMux()
 	mux.HandleFunc("/criteria/auth", func(writer http.ResponseWriter, request *http.Request) {
 		assert.Equal(t, http.MethodPost, request.Method)
+		if handlers.onAuthRequest != nil {
+			handlers.onAuthRequest(request)
+		}
 		if handlers.authRawBody != nil {
 			writer.Header().Set("Content-Type", "application/json")
 			writer.WriteHeader(handlers.authStatus)

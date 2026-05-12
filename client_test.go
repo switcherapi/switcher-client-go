@@ -22,6 +22,22 @@ func TestClientGetSwitcher(t *testing.T) {
 		assert.NotSame(t, switcher1, switcher3, "expected different instances for different keys")
 	})
 
+	t.Run("should replace the cached switchers after rebuilding the default context", func(t *testing.T) {
+		BuildContext(Context{
+			Domain: "First Domain",
+		})
+
+		first := GetSwitcher("switcher1")
+
+		BuildContext(Context{
+			Domain: "Second Domain",
+		})
+
+		second := GetSwitcher("switcher1")
+
+		assert.NotSame(t, first, second, "expected a new cached switcher after rebuilding the default context")
+	})
+
 	t.Run("should return the cached instance after concurrent insert", func(t *testing.T) {
 		client := NewClient(Context{Domain: "My Domain"})
 
