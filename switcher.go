@@ -42,12 +42,19 @@ func (s *Switcher) Validate() error {
 }
 
 func (s *Switcher) CheckValue(input string) *Switcher {
-	s.entries = []criteriaEntry{
-		{
-			Strategy: StrategyValue,
-			Input:    input,
-		},
-	}
+	s.entries = upsertEntry(s.entries, criteriaEntry{
+		Strategy: StrategyValue,
+		Input:    input,
+	})
+
+	return s
+}
+
+func (s *Switcher) CheckNetwork(input string) *Switcher {
+	s.entries = upsertEntry(s.entries, criteriaEntry{
+		Strategy: StrategyNetwork,
+		Input:    input,
+	})
 
 	return s
 }
@@ -83,6 +90,10 @@ func (s *Switcher) IsOnWithDetails() (ResultDetail, error) {
 }
 
 func (s *Switcher) submit(showDetails bool) (ResultDetail, error) {
+	if s.client.Context().Options.Local {
+		return checkLocalCriteria(s.client.snapshotState(), s)
+	}
+
 	if err := s.Validate(); err != nil {
 		return ResultDetail{}, err
 	}
@@ -97,4 +108,15 @@ func (s *Switcher) submit(showDetails bool) (ResultDetail, error) {
 	}
 
 	return s.client.checkCriteria(token, s, showDetails)
+}
+
+func upsertEntry(entries []criteriaEntry, next criteriaEntry) []criteriaEntry {
+	for i := range entries {
+		if entries[i].Strategy == next.Strategy {
+			entries[i] = next
+			return entries
+		}
+	}
+
+	return append(entries, next)
 }

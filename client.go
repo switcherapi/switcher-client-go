@@ -14,6 +14,7 @@ type Client struct {
 	mu        sync.RWMutex
 	context   Context
 	switchers map[string]*Switcher
+	snapshot  *Snapshot
 
 	authMu       sync.Mutex
 	authToken    string
@@ -77,6 +78,45 @@ func (c *Client) Context() Context {
 	defer c.mu.RUnlock()
 
 	return c.context
+}
+
+func LoadSnapshot(options *LoadSnapshotOptions) (int, error) {
+	return defaultClient().LoadSnapshot(options)
+}
+
+func (c *Client) LoadSnapshot(options *LoadSnapshotOptions) (int, error) {
+	snapshot, err := loadSnapshotFromFile(c.Context())
+	if err != nil {
+		return 0, err
+	}
+
+	c.mu.Lock()
+	c.snapshot = snapshot
+	c.mu.Unlock()
+
+	return c.SnapshotVersion(), nil
+}
+
+func SnapshotVersion() int {
+	return defaultClient().SnapshotVersion()
+}
+
+func (c *Client) SnapshotVersion() int {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	if c.snapshot == nil {
+		return 0
+	}
+
+	return c.snapshot.Domain.Version
+}
+
+func (c *Client) snapshotState() *Snapshot {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.snapshot
 }
 
 func defaultClient() *Client {

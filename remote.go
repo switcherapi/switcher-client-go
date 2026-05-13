@@ -15,7 +15,8 @@ import (
 )
 
 const (
-	StrategyValue = "VALUE_VALIDATION"
+	StrategyValue   = "VALUE_VALIDATION"
+	StrategyNetwork = "NETWORK_VALIDATION"
 )
 
 type criteriaEntry struct {
