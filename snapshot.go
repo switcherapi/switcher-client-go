@@ -74,9 +74,7 @@ func createDefaultSnapshot(ctx Context, snapshotFile string) (*Snapshot, error) 
 func loadSnapshotFromFile(ctx Context) (*Snapshot, error) {
 	snapshotFile := filepath.Join(ctx.Options.SnapshotLocation, ctx.Environment+".json")
 	if _, err := os.Stat(snapshotFile); err != nil {
-		if os.IsNotExist(err) {
-			return createDefaultSnapshot(ctx, snapshotFile)
-		}
+		return createDefaultSnapshot(ctx, snapshotFile)
 	}
 
 	content, _ := os.ReadFile(snapshotFile)
