@@ -1,0 +1,51 @@
+{
+    "domain": {
+        "name": "Business",
+        "activated": true,
+        "version": 1,
+        "group": [
+            {
+                "name": "Network tests",
+                "activated": true,
+                "config": [
+                    {
+                        "key": "NET_EXIST_CIDR",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NETWORK_VALIDATION",
+                                "activated": true,
+                                "operation": "EXIST",
+                                "values": ["10.0.0.0/24"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "NET_EXIST_IP",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NETWORK_VALIDATION",
+                                "activated": true,
+                                "operation": "EXIST",
+                                "values": ["10.0.0.3"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "NET_NOT_EXIST_CIDR",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NETWORK_VALIDATION",
+                                "activated": true,
+                                "operation": "NOT_EXIST",
+                                "values": ["10.0.0.0/24"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

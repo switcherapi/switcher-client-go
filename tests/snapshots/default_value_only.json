@@ -1,0 +1,85 @@
+{
+    "domain": {
+        "name": "Business",
+        "description": "Business description",
+        "activated": true,
+        "version": 1,
+        "group": [
+            {
+                "name": "Rollout 2020",
+                "description": "Value-only checks for current Go local slice",
+                "activated": true,
+                "config": [
+                    {
+                        "key": "FF2FOR2020",
+                        "description": "Feature Flag",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "VALUE_VALIDATION",
+                                "activated": true,
+                                "operation": "NOT_EXIST",
+                                "values": [
+                                    "USA",
+                                    "Canada",
+                                    "Australia",
+                                    "Africa"
+                                ]
+                            }
+                        ],
+                        "components": []
+                    },
+                    {
+                        "key": "VALUE_EXIST",
+                        "description": "Value EXIST strategy",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "VALUE_VALIDATION",
+                                "activated": true,
+                                "operation": "EXIST",
+                                "values": [
+                                    "guest",
+                                    "admin"
+                                ]
+                            }
+                        ],
+                        "components": []
+                    },
+                    {
+                        "key": "VALUE_EQUAL",
+                        "description": "Value EQUAL strategy",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "VALUE_VALIDATION",
+                                "activated": true,
+                                "operation": "EQUAL",
+                                "values": [
+                                    "pro-user"
+                                ]
+                            }
+                        ],
+                        "components": []
+                    },
+                    {
+                        "key": "HAS_ALL",
+                        "description": "Invalid operation HAS_ALL strategy",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "VALUE_VALIDATION",
+                                "activated": true,
+                                "operation": "HAS_ALL",
+                                "values": [
+                                    "pro-user"
+                                ]
+                            }
+                        ],
+                        "components": []
+                    }
+                ]
+            }
+        ]
+    }
+}
