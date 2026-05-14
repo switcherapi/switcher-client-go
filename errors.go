@@ -18,6 +18,10 @@ type RemoteCriteriaError struct {
 	RemoteError
 }
 
+type RemoteSnapshotError struct {
+	RemoteError
+}
+
 type LocalCriteriaError struct {
 	message string
 }
@@ -32,6 +36,10 @@ func newRemoteAuthError(format string, args ...any) error {
 
 func newRemoteCriteriaError(format string, args ...any) error {
 	return &RemoteCriteriaError{RemoteError: RemoteError{message: fmt.Sprintf(format, args...)}}
+}
+
+func newRemoteSnapshotError(format string, args ...any) error {
+	return &RemoteSnapshotError{RemoteError: RemoteError{message: fmt.Sprintf(format, args...)}}
 }
 
 func newLocalCriteriaError(format string, args ...any) error {

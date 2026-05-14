@@ -16,6 +16,9 @@ type Client struct {
 	switchers map[string]*Switcher
 	snapshot  *Snapshot
 
+	snapshotWatcher     *snapshotWatcher
+	snapshotAutoUpdater *snapshotAutoUpdater
+
 	authMu       sync.Mutex
 	authToken    string
 	authTokenExp int64
@@ -26,13 +29,21 @@ type Client struct {
 
 func NewClient(ctx Context) *Client {
 	return &Client{
-		context:   ctx.withDefaults(),
-		switchers: make(map[string]*Switcher),
+		context:             ctx.withDefaults(),
+		switchers:           make(map[string]*Switcher),
+		snapshotWatcher:     newSnapshotWatcher(),
+		snapshotAutoUpdater: newSnapshotAutoUpdater(),
 	}
 }
 
 func BuildContext(ctx Context) {
-	globalClient.Store(NewClient(ctx))
+	client := NewClient(ctx)
+	if current := globalClient.Load(); current != nil {
+		current.stopBackgroundTasks()
+	}
+	globalClient.Store(client)
+
+	client.ScheduleSnapshotAutoUpdate(0, nil)
 }
 
 func GetSwitcher(key string) *Switcher {
@@ -85,14 +96,26 @@ func LoadSnapshot(options *LoadSnapshotOptions) (int, error) {
 }
 
 func (c *Client) LoadSnapshot(options *LoadSnapshotOptions) (int, error) {
-	snapshot, err := loadSnapshotFromFile(c.Context())
-	if err != nil {
+	settings := LoadSnapshotOptions{}
+	if options != nil {
+		settings = *options
+	}
+
+	if _, err := c.loadSnapshotFromCurrentFile(); err != nil {
 		return 0, err
 	}
 
-	c.mu.Lock()
-	c.snapshot = snapshot
-	c.mu.Unlock()
+	if c.shouldCheckSnapshot(settings.FetchRemote) {
+		if _, err := c.CheckSnapshot(); err != nil {
+			return 0, err
+		}
+	}
+
+	if settings.WatchSnapshot {
+		if err := c.WatchSnapshot(WatchSnapshotCallback{}); err != nil {
+			return 0, err
+		}
+	}
 
 	return c.SnapshotVersion(), nil
 }
@@ -117,6 +140,18 @@ func (c *Client) snapshotState() *Snapshot {
 	defer c.mu.RUnlock()
 
 	return c.snapshot
+}
+
+func (c *Client) setSnapshot(snapshot *Snapshot) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	c.snapshot = snapshot
+}
+
+func (c *Client) stopBackgroundTasks() {
+	c.TerminateSnapshotAutoUpdate()
+	c.UnwatchSnapshot()
 }
 
 func defaultClient() *Client {

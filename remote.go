@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -131,8 +132,13 @@ func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails boo
 }
 
 func (c *Client) doJSONRequest(method, endpoint string, payload any, headers map[string]string) (*http.Response, error) {
-	body, _ := json.Marshal(payload)
-	request, _ := http.NewRequestWithContext(context.Background(), method, endpoint, bytes.NewReader(body))
+	var bodyReader io.Reader
+	if payload != nil {
+		body, _ := json.Marshal(payload)
+		bodyReader = bytes.NewReader(body)
+	}
+
+	request, _ := http.NewRequestWithContext(context.Background(), method, endpoint, bodyReader)
 
 	for key, value := range headers {
 		request.Header.Set(key, value)

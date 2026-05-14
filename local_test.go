@@ -2,9 +2,11 @@ package client
 
 import (
 	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -64,6 +66,47 @@ func TestSnapshotLoading(t *testing.T) {
 		assert.Zero(t, version)
 	})
 
+	t.Run("should return an error when the snapshot file is not accessible while saving remote updates", func(t *testing.T) {
+		snapshotDir := t.TempDir()
+		writeSnapshotFixture(t, snapshotDir, "default_load_1", "default_load_1")
+
+		server := newSnapshotTestServer(t, snapshotRemoteHandlers{
+			authStatus:          http.StatusOK,
+			authBody:            map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			snapshotCheckStatus: http.StatusOK,
+			snapshotCheckBody:   map[string]any{"status": false},
+			resolveStatus:       http.StatusOK,
+			resolveDomain:       loadSnapshotFixture(t, "default_load_2"),
+		})
+		defer server.Close()
+
+		BuildContext(Context{
+			Domain:      "My Domain",
+			URL:         server.URL,
+			APIKey:      "[YOUR_API_KEY]",
+			Component:   "MyApp",
+			Environment: "default_load_1",
+			Options: ContextOptions{
+				Local:            true,
+				SnapshotLocation: snapshotDir,
+			},
+		})
+
+		version, loadErr := LoadSnapshot(nil)
+		assert.NoError(t, loadErr)
+		assert.Equal(t, 1588557288040, version)
+
+		removeErr := os.RemoveAll(snapshotDir)
+		assert.NoError(t, removeErr)
+		blockErr := os.WriteFile(snapshotDir, []byte("not-a-directory"), 0o644)
+		assert.NoError(t, blockErr)
+
+		updated, err := CheckSnapshot()
+
+		assert.Error(t, err)
+		assert.False(t, updated)
+	})
+
 	t.Run("should return an error when the snapshot file path cannot be created", func(t *testing.T) {
 		BuildContext(Context{
 			Domain: "My Domain",
@@ -78,6 +121,49 @@ func TestSnapshotLoading(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.Zero(t, version)
+	})
+
+	t.Run("should return an error when check snapshot fails during load snapshot", func(t *testing.T) {
+		server := newSnapshotTestServer(t, snapshotRemoteHandlers{
+			authStatus:          http.StatusOK,
+			authBody:            map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			snapshotCheckStatus: http.StatusInternalServerError,
+			snapshotCheckBody:   map[string]any{"status": false},
+		})
+		defer server.Close()
+
+		BuildContext(Context{
+			Domain:    "My Domain",
+			URL:       server.URL,
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+			Options: ContextOptions{
+				Local: false,
+			},
+		})
+
+		version, err := LoadSnapshot(nil)
+
+		assert.Error(t, err)
+		assert.Zero(t, version)
+		assert.EqualError(t, err, "[check_snapshot_version] failed with status: 500")
+	})
+
+	t.Run("should return an error when watch snapshot fails during load snapshot", func(t *testing.T) {
+		BuildContext(Context{
+			Domain: "My Domain",
+			Options: ContextOptions{
+				Local: true,
+			},
+		})
+
+		version, err := LoadSnapshot(&LoadSnapshotOptions{
+			WatchSnapshot: true,
+		})
+
+		assert.Error(t, err)
+		assert.Zero(t, version)
+		assert.EqualError(t, err, "snapshot location is not defined in the context options")
 	})
 
 	t.Run("should create a clean snapshot when no file exists", func(t *testing.T) {

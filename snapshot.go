@@ -72,7 +72,7 @@ func createDefaultSnapshot(ctx Context, snapshotFile string) (*Snapshot, error) 
 }
 
 func loadSnapshotFromFile(ctx Context) (*Snapshot, error) {
-	snapshotFile := filepath.Join(ctx.Options.SnapshotLocation, ctx.Environment+".json")
+	snapshotFile := snapshotFilePath(ctx)
 	if _, err := os.Stat(snapshotFile); err != nil {
 		return createDefaultSnapshot(ctx, snapshotFile)
 	}
@@ -85,4 +85,21 @@ func loadSnapshotFromFile(ctx Context) (*Snapshot, error) {
 	}
 
 	return &snapshot, nil
+}
+
+func saveSnapshotToFile(ctx Context, snapshot *Snapshot) error {
+	if ctx.Options.SnapshotLocation == "" {
+		return nil
+	}
+
+	if err := os.MkdirAll(ctx.Options.SnapshotLocation, 0o755); err != nil {
+		return err
+	}
+
+	content, _ := json.MarshalIndent(snapshot, "", "    ")
+	return os.WriteFile(snapshotFilePath(ctx), content, 0o644)
+}
+
+func snapshotFilePath(ctx Context) string {
+	return filepath.Join(ctx.Options.SnapshotLocation, ctx.Environment+".json")
 }
