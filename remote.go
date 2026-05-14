@@ -14,11 +14,6 @@ import (
 	"time"
 )
 
-const (
-	StrategyValue   = "VALUE_VALIDATION"
-	StrategyNetwork = "NETWORK_VALIDATION"
-)
-
 type criteriaEntry struct {
 	Strategy string `json:"strategy"`
 	Input    string `json:"input"`
