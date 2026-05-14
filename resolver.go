@@ -1,10 +1,5 @@
 package client
 
-import (
-	"net"
-	"slices"
-)
-
 func checkLocalCriteria(snapshot *Snapshot, switcher *Switcher) (ResultDetail, error) {
 	if snapshot == nil {
 		return ResultDetail{}, newLocalCriteriaError("Snapshot not loaded. Try to use 'Client.load_snapshot()'")
@@ -67,7 +62,7 @@ func checkLocalStrategies(strategies []SnapshotStrategy, entries []criteriaEntry
 		}
 
 		entry, ok := findCriteriaEntry(entries, strategy.Strategy)
-		if !ok || !evaluateLocalStrategy(strategy, entry.Input) {
+		if !ok || !processLocalStrategy(strategy, entry.Input) {
 			return ResultDetail{Result: false, Reason: "Strategy '" + strategy.Strategy + "' does not agree", Metadata: map[string]any{}}, nil
 		}
 	}
@@ -83,51 +78,4 @@ func findCriteriaEntry(entries []criteriaEntry, strategy string) (criteriaEntry,
 	}
 
 	return criteriaEntry{}, false
-}
-
-func evaluateLocalStrategy(strategy SnapshotStrategy, input string) bool {
-	switch strategy.Strategy {
-	case StrategyValue:
-		switch strategy.Operation {
-		case "EXIST", "EQUAL":
-			return containsString(strategy.Values, input)
-		case "NOT_EXIST", "NOT_EQUAL":
-			return !containsString(strategy.Values, input)
-		}
-	case StrategyNetwork:
-		switch strategy.Operation {
-		case "EXIST":
-			return networkExists(strategy.Values, input)
-		case "NOT_EXIST":
-			return !networkExists(strategy.Values, input)
-		}
-	}
-
-	return false
-}
-
-func containsString(values []string, target string) bool {
-	return slices.Contains(values, target)
-}
-
-func networkExists(values []string, input string) bool {
-	ip := net.ParseIP(input)
-	if ip == nil {
-		return false
-	}
-
-	for _, value := range values {
-		if _, network, err := net.ParseCIDR(value); err == nil {
-			if network.Contains(ip) {
-				return true
-			}
-			continue
-		}
-
-		if parsed := net.ParseIP(value); parsed != nil && parsed.Equal(ip) {
-			return true
-		}
-	}
-
-	return false
 }
