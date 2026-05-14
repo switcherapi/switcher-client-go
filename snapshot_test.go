@@ -699,17 +699,17 @@ func writeSnapshotFixture(t *testing.T, snapshotDir, environment, fixture string
 }
 
 type snapshotRemoteHandlers struct {
-	authStatus          int
-	authBody            map[string]any
-	snapshotCheckStatus int
-	snapshotCheckBody   map[string]any
+	authStatus           int
+	authBody             map[string]any
+	snapshotCheckStatus  int
+	snapshotCheckBody    map[string]any
 	snapshotCheckRawBody *string
-	resolveStatus       int
-	resolveDomain       map[string]any
-	resolveRawBody      *string
-	resolveUnavailable  bool
-	snapshotChecks      []snapshotCheckStep
-	resolveSteps        []resolveSnapshotStep
+	resolveStatus        int
+	resolveDomain        map[string]any
+	resolveRawBody       *string
+	resolveUnavailable   bool
+	snapshotChecks       []snapshotCheckStep
+	resolveSteps         []resolveSnapshotStep
 }
 
 type snapshotCheckStep struct {
@@ -731,74 +731,90 @@ func newSnapshotTestServer(t *testing.T, handlers snapshotRemoteHandlers) *httpt
 	var mu sync.Mutex
 
 	mux.HandleFunc("/criteria/auth", func(writer http.ResponseWriter, request *http.Request) {
-		assert.Equal(t, http.MethodPost, request.Method)
-		writeJSONResponse(t, writer, handlers.authStatus, handlers.authBody)
+		handleAuth(t, writer, request, handlers)
 	})
 	mux.HandleFunc("/criteria/snapshot_check/", func(writer http.ResponseWriter, request *http.Request) {
-		assert.Equal(t, http.MethodGet, request.Method)
-
-		mu.Lock()
-		defer mu.Unlock()
-
-		if len(handlers.snapshotChecks) > 0 {
-			step := handlers.snapshotChecks[min(snapshotCheckIndex, len(handlers.snapshotChecks)-1)]
-			snapshotCheckIndex++
-			writeJSONResponse(t, writer, step.status, step.body)
-			return
-		}
-
-		if handlers.snapshotCheckRawBody != nil {
-			writer.Header().Set("Content-Type", "application/json")
-			writer.WriteHeader(handlers.snapshotCheckStatus)
-			_, err := writer.Write([]byte(*handlers.snapshotCheckRawBody))
-			assert.NoError(t, err)
-			return
-		}
-
-		writeJSONResponse(t, writer, handlers.snapshotCheckStatus, handlers.snapshotCheckBody)
+		handleSnapshotCheck(t, writer, request, handlers, &snapshotCheckIndex, &mu)
 	})
 	mux.HandleFunc("/graphql", func(writer http.ResponseWriter, request *http.Request) {
-		assert.Equal(t, http.MethodPost, request.Method)
-
-		mu.Lock()
-		defer mu.Unlock()
-
-		if handlers.resolveUnavailable {
-			hijacker, ok := writer.(http.Hijacker)
-			assert.True(t, ok)
-			if !ok {
-				return
-			}
-
-			conn, _, err := hijacker.Hijack()
-			assert.NoError(t, err)
-			if err != nil {
-				return
-			}
-
-			_ = conn.Close()
-			return
-		}
-
-		if handlers.resolveRawBody != nil {
-			writer.Header().Set("Content-Type", "application/json")
-			writer.WriteHeader(handlers.resolveStatus)
-			_, err := writer.Write([]byte(*handlers.resolveRawBody))
-			assert.NoError(t, err)
-			return
-		}
-
-		if len(handlers.resolveSteps) > 0 {
-			step := handlers.resolveSteps[min(resolveIndex, len(handlers.resolveSteps)-1)]
-			resolveIndex++
-			writeJSONResponse(t, writer, step.status, map[string]any{"data": map[string]any{"domain": step.domain}})
-			return
-		}
-
-		writeJSONResponse(t, writer, handlers.resolveStatus, map[string]any{"data": map[string]any{"domain": handlers.resolveDomain}})
+		handleGraphQL(t, writer, request, handlers, &resolveIndex, &mu)
 	})
 
 	return httptest.NewServer(mux)
+}
+
+func handleAuth(t *testing.T, writer http.ResponseWriter, request *http.Request, handlers snapshotRemoteHandlers) {
+	assert.Equal(t, http.MethodPost, request.Method)
+	writeJSONResponse(t, writer, handlers.authStatus, handlers.authBody)
+}
+
+func handleSnapshotCheck(t *testing.T, writer http.ResponseWriter, request *http.Request, handlers snapshotRemoteHandlers, index *int, mu *sync.Mutex) {
+	assert.Equal(t, http.MethodGet, request.Method)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if len(handlers.snapshotChecks) > 0 {
+		step := handlers.snapshotChecks[min(*index, len(handlers.snapshotChecks)-1)]
+		*index++
+		writeJSONResponse(t, writer, step.status, step.body)
+		return
+	}
+
+	if handlers.snapshotCheckRawBody != nil {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(handlers.snapshotCheckStatus)
+		_, err := writer.Write([]byte(*handlers.snapshotCheckRawBody))
+		assert.NoError(t, err)
+		return
+	}
+
+	writeJSONResponse(t, writer, handlers.snapshotCheckStatus, handlers.snapshotCheckBody)
+}
+
+func handleGraphQL(t *testing.T, writer http.ResponseWriter, request *http.Request, handlers snapshotRemoteHandlers, index *int, mu *sync.Mutex) {
+	assert.Equal(t, http.MethodPost, request.Method)
+
+	mu.Lock()
+	defer mu.Unlock()
+
+	if handlers.resolveUnavailable {
+		handleUnavailable(t, writer)
+		return
+	}
+
+	if handlers.resolveRawBody != nil {
+		writer.Header().Set("Content-Type", "application/json")
+		writer.WriteHeader(handlers.resolveStatus)
+		_, err := writer.Write([]byte(*handlers.resolveRawBody))
+		assert.NoError(t, err)
+		return
+	}
+
+	if len(handlers.resolveSteps) > 0 {
+		step := handlers.resolveSteps[min(*index, len(handlers.resolveSteps)-1)]
+		*index++
+		writeJSONResponse(t, writer, step.status, map[string]any{"data": map[string]any{"domain": step.domain}})
+		return
+	}
+
+	writeJSONResponse(t, writer, handlers.resolveStatus, map[string]any{"data": map[string]any{"domain": handlers.resolveDomain}})
+}
+
+func handleUnavailable(t *testing.T, writer http.ResponseWriter) {
+	hijacker, ok := writer.(http.Hijacker)
+	assert.True(t, ok)
+	if !ok {
+		return
+	}
+
+	conn, _, err := hijacker.Hijack()
+	assert.NoError(t, err)
+	if err != nil {
+		return
+	}
+
+	_ = conn.Close()
 }
 
 func min(a, b int) int {
