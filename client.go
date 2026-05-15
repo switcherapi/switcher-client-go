@@ -135,6 +135,42 @@ func (c *Client) SnapshotVersion() int {
 	return c.snapshot.Domain.Version
 }
 
+func CheckSnapshot() (bool, error) {
+	return defaultClient().CheckSnapshot()
+}
+
+func (c *Client) CheckSnapshot() (bool, error) {
+	token, err := c.ensureToken()
+	if err != nil {
+		return false, err
+	}
+
+	if err := missingTokenError(token); err != nil {
+		return false, err
+	}
+
+	upToDate, err := c.checkSnapshotVersion(token, c.SnapshotVersion())
+	if err != nil {
+		return false, err
+	}
+
+	if upToDate {
+		return false, nil
+	}
+
+	snapshot, err := c.resolveSnapshot(token)
+	if err != nil {
+		return false, err
+	}
+
+	if err := saveSnapshotToFile(c.Context(), snapshot); err != nil {
+		return false, err
+	}
+
+	c.setSnapshot(snapshot)
+	return true, nil
+}
+
 func (c *Client) snapshotState() *Snapshot {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -152,6 +188,21 @@ func (c *Client) setSnapshot(snapshot *Snapshot) {
 func (c *Client) stopBackgroundTasks() {
 	c.TerminateSnapshotAutoUpdate()
 	c.UnwatchSnapshot()
+}
+
+func (c *Client) shouldCheckSnapshot(fetchRemote bool) bool {
+	ctx := c.Context()
+	return c.SnapshotVersion() == 0 && (fetchRemote || !ctx.Options.Local)
+}
+
+func (c *Client) loadSnapshotFromCurrentFile() (*Snapshot, error) {
+	snapshot, err := loadSnapshotFromFile(c.Context())
+	if err != nil {
+		return nil, err
+	}
+
+	c.setSnapshot(snapshot)
+	return snapshot, nil
 }
 
 func defaultClient() *Client {

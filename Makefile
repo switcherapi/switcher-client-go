@@ -1,4 +1,4 @@
-.PHONY: test cover cover-html lint lint-install
+.PHONY: test fmt cover cover-html lint lint-install
 
 GOLANGCI_LINT_VERSION=v2.12.2
 
@@ -7,6 +7,9 @@ test-clean:
 	
 test:
 	go test -p 1 -v ./...
+
+fmt:
+	gofmt -s -w .
 
 lint-install:
 	go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
