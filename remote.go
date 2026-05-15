@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -31,6 +32,25 @@ type criteriaResponse struct {
 	Metadata map[string]any `json:"metadata"`
 }
 
+type snapshotCheckResponse struct {
+	Status bool `json:"status"`
+}
+
+type resolveSnapshotResponse struct {
+	Data struct {
+		Domain SnapshotDomain `json:"domain"`
+	} `json:"data"`
+}
+
+const contentTypeJSON = "application/json"
+
+func (c *Client) authHeaders(token string) map[string]string {
+	return map[string]string{
+		"Authorization": "Bearer " + token,
+		"Content-Type":  contentTypeJSON,
+	}
+}
+
 func (c *Client) ensureToken() (string, error) {
 	c.authMu.Lock()
 	defer c.authMu.Unlock()
@@ -50,10 +70,7 @@ func (c *Client) ensureToken() (string, error) {
 			"component":   ctx.Component,
 			"environment": ctx.Environment,
 		},
-		map[string]string{
-			"switcher-api-key": ctx.APIKey,
-			"Content-Type":     "application/json",
-		},
+		c.authHeaders(""),
 	)
 	if err != nil {
 		return "", newRemoteAuthError("[auth] remote unavailable")
@@ -103,10 +120,7 @@ func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails boo
 		map[string]any{
 			"entry": entries,
 		},
-		map[string]string{
-			"Authorization": "Bearer " + token,
-			"Content-Type":  "application/json",
-		},
+		c.authHeaders(token),
 	)
 	if err != nil {
 		return ResultDetail{}, newRemoteCriteriaError("[check_criteria] remote unavailable")
@@ -129,6 +143,78 @@ func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails boo
 	}
 
 	return ResultDetail(payload), nil
+}
+
+func (c *Client) checkSnapshotVersion(token string, snapshotVersion int) (bool, error) {
+	ctx := c.Context()
+	endpoint := fmt.Sprintf("%s/criteria/snapshot_check/%d", strings.TrimRight(ctx.URL, "/"), snapshotVersion)
+
+	response, err := c.doJSONRequest(
+		http.MethodGet,
+		endpoint,
+		nil,
+		c.authHeaders(token),
+	)
+	if err != nil {
+		return false, newRemoteSnapshotError("[check_snapshot_version] remote unavailable")
+	}
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	if response.StatusCode != http.StatusOK {
+		return false, newRemoteSnapshotError("[check_snapshot_version] failed with status: %d", response.StatusCode)
+	}
+
+	var payload snapshotCheckResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return false, newRemoteSnapshotError("[check_snapshot_version] failed to decode response: %v", err)
+	}
+
+	return payload.Status, nil
+}
+
+func (c *Client) resolveSnapshot(token string) (*Snapshot, error) {
+	ctx := c.Context()
+	endpoint := strings.TrimRight(ctx.URL, "/") + "/graphql"
+
+	response, err := c.doJSONRequest(
+		http.MethodPost,
+		endpoint,
+		map[string]string{
+			"query": fmt.Sprintf(`
+				query domain {
+					domain(name: %q, environment: %q, _component: %q) {
+						name version activated
+						group { name activated
+							config { key activated
+								strategies { strategy activated operation values }
+								relay { type activated }
+							}
+						}
+					}
+				}
+			`, ctx.Domain, ctx.Environment, ctx.Component),
+		},
+		c.authHeaders(token),
+	)
+	if err != nil {
+		return nil, newRemoteSnapshotError("[resolve_snapshot] remote unavailable")
+	}
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, newRemoteSnapshotError("[resolve_snapshot] failed with status: %d", response.StatusCode)
+	}
+
+	var payload resolveSnapshotResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return nil, newRemoteSnapshotError("[resolve_snapshot] failed to decode response: %v", err)
+	}
+
+	return &Snapshot{Domain: payload.Data.Domain}, nil
 }
 
 func (c *Client) doJSONRequest(method, endpoint string, payload any, headers map[string]string) (*http.Response, error) {
