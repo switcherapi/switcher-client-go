@@ -42,6 +42,15 @@ type resolveSnapshotResponse struct {
 	} `json:"data"`
 }
 
+const contentTypeJSON = "application/json"
+
+func (c *Client) authHeaders(token string) map[string]string {
+	return map[string]string{
+		"Authorization": "Bearer " + token,
+		"Content-Type":  contentTypeJSON,
+	}
+}
+
 func (c *Client) ensureToken() (string, error) {
 	c.authMu.Lock()
 	defer c.authMu.Unlock()
@@ -61,10 +70,7 @@ func (c *Client) ensureToken() (string, error) {
 			"component":   ctx.Component,
 			"environment": ctx.Environment,
 		},
-		map[string]string{
-			"switcher-api-key": ctx.APIKey,
-			"Content-Type":     "application/json",
-		},
+		c.authHeaders(""),
 	)
 	if err != nil {
 		return "", newRemoteAuthError("[auth] remote unavailable")
@@ -114,10 +120,7 @@ func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails boo
 		map[string]any{
 			"entry": entries,
 		},
-		map[string]string{
-			"Authorization": "Bearer " + token,
-			"Content-Type":  "application/json",
-		},
+		c.authHeaders(token),
 	)
 	if err != nil {
 		return ResultDetail{}, newRemoteCriteriaError("[check_criteria] remote unavailable")
@@ -150,10 +153,7 @@ func (c *Client) checkSnapshotVersion(token string, snapshotVersion int) (bool, 
 		http.MethodGet,
 		endpoint,
 		nil,
-		map[string]string{
-			"Authorization": "Bearer " + token,
-			"Content-Type":  "application/json",
-		},
+		c.authHeaders(token),
 	)
 	if err != nil {
 		return false, newRemoteSnapshotError("[check_snapshot_version] remote unavailable")
@@ -196,10 +196,7 @@ func (c *Client) resolveSnapshot(token string) (*Snapshot, error) {
 				}
 			`, ctx.Domain, ctx.Environment, ctx.Component),
 		},
-		map[string]string{
-			"Authorization": "Bearer " + token,
-			"Content-Type":  "application/json",
-		},
+		c.authHeaders(token),
 	)
 	if err != nil {
 		return nil, newRemoteSnapshotError("[resolve_snapshot] remote unavailable")
