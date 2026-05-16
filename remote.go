@@ -70,7 +70,10 @@ func (c *Client) ensureToken() (string, error) {
 			"component":   ctx.Component,
 			"environment": ctx.Environment,
 		},
-		c.authHeaders(""),
+		map[string]string{
+			"switcher-api-key": ctx.APIKey,
+			"Content-Type":     "application/json",
+		},
 	)
 	if err != nil {
 		return "", newRemoteAuthError("[auth] remote unavailable")
