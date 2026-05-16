@@ -98,16 +98,25 @@ func (s *Switcher) submit(showDetails bool) (ResultDetail, error) {
 		return ResultDetail{}, err
 	}
 
+	if s.client.shouldUseLocalSilentMode() {
+		return checkLocalCriteria(s.client.snapshotState(), s)
+	}
+
 	token, err := s.client.ensureToken()
 	if err != nil {
-		return ResultDetail{}, err
+		return s.client.fallbackToSilentMode(s, err)
 	}
 
 	if err := missingTokenError(token); err != nil {
-		return ResultDetail{}, err
+		return s.client.fallbackToSilentMode(s, err)
 	}
 
-	return s.client.checkCriteria(token, s, showDetails)
+	result, err := s.client.checkCriteria(token, s, showDetails)
+	if err != nil {
+		return s.client.fallbackToSilentMode(s, err)
+	}
+
+	return result, nil
 }
 
 func upsertEntry(entries []criteriaEntry, next criteriaEntry) []criteriaEntry {
