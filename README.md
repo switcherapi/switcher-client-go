@@ -223,7 +223,7 @@ func main() {
 | `ConnectTimeout` | `time.Duration` | Max time to establish a remote connection before failing fast | `300ms` |
 | `Timeout` | `time.Duration` | Max time for remote request/response and idle connection reuse | `5s` |
 
-**Under development:** transport errors are normalized into typed SDK errors, and silent mode uses the configured remote timeouts to fail fast and switch back to local evaluation.
+**Note:** lower remote connect timeouts help silent mode fall back faster when the upstream is unavailable.
 
 #### Security Features
 

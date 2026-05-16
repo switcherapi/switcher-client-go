@@ -55,7 +55,7 @@ func (c *Client) ensureToken() (string, error) {
 	c.authMu.Lock()
 	defer c.authMu.Unlock()
 
-	if strings.TrimSpace(c.authToken) != "" && !tokenExpired(c.authTokenExp) {
+	if strings.TrimSpace(c.authToken) != "" && c.authToken != silentModeAuthToken && !tokenExpired(c.authTokenExp) {
 		return c.authToken, nil
 	}
 
@@ -215,6 +215,26 @@ func (c *Client) resolveSnapshot(token string) (*Snapshot, error) {
 	}
 
 	return &Snapshot{Domain: payload.Data.Domain}, nil
+}
+
+func (c *Client) checkAPIHealth() bool {
+	ctx := c.Context()
+	endpoint := strings.TrimRight(ctx.URL, "/") + "/check"
+
+	response, err := c.doJSONRequest(
+		http.MethodGet,
+		endpoint,
+		nil,
+		map[string]string{},
+	)
+	if err != nil {
+		return false
+	}
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	return response.StatusCode == http.StatusOK
 }
 
 func (c *Client) doJSONRequest(method, endpoint string, payload any, headers map[string]string) (*http.Response, error) {
