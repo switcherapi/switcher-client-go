@@ -5,11 +5,14 @@ import (
 	"sync"
 )
 
+// ExecutionInput represents a single strategy input captured when a Switcher is evaluated.
 type ExecutionInput struct {
 	Strategy string
 	Input    string
 }
 
+// ExecutionEntry stores a cached evaluation for a Switcher including inputs and the response.
+// This is used by the client's execution logger to implement throttling and cached returns.
 type ExecutionEntry struct {
 	Key      string
 	Inputs   []ExecutionInput

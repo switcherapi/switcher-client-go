@@ -6,15 +6,20 @@ import (
 	"path/filepath"
 )
 
+// LoadSnapshotOptions controls behavior when loading snapshots programmatically.
+// FetchRemote will cause the client to check the remote API for a newer snapshot.
+// WatchSnapshot will start a file watcher after loading.
 type LoadSnapshotOptions struct {
 	FetchRemote   bool
 	WatchSnapshot bool
 }
 
+// Snapshot is the top-level representation of a domain snapshot loaded from disk or remote.
 type Snapshot struct {
 	Domain SnapshotDomain `json:"domain"`
 }
 
+// SnapshotDomain describes a Switcher domain and contains groups of configs.
 type SnapshotDomain struct {
 	Name        string          `json:"name"`
 	Activated   bool            `json:"activated"`
@@ -23,6 +28,7 @@ type SnapshotDomain struct {
 	Description string          `json:"description"`
 }
 
+// SnapshotGroup represents a logical grouping of Switcher configs within a domain.
 type SnapshotGroup struct {
 	Name        string           `json:"name"`
 	Activated   bool             `json:"activated"`
@@ -30,6 +36,7 @@ type SnapshotGroup struct {
 	Description string           `json:"description"`
 }
 
+// SnapshotConfig describes a single feature flag (switcher) stored in the snapshot.
 type SnapshotConfig struct {
 	Key         string             `json:"key"`
 	Activated   bool               `json:"activated"`
@@ -38,6 +45,7 @@ type SnapshotConfig struct {
 	Description string             `json:"description"`
 }
 
+// SnapshotStrategy models a single strategy entry within a snapshot config.
 type SnapshotStrategy struct {
 	Strategy  string   `json:"strategy"`
 	Activated bool     `json:"activated"`
@@ -45,6 +53,7 @@ type SnapshotStrategy struct {
 	Values    []string `json:"values"`
 }
 
+// SnapshotRelay models relay configuration associated with a snapshot config.
 type SnapshotRelay struct {
 	Type      string `json:"type"`
 	Activated bool   `json:"activated"`

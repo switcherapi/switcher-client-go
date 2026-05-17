@@ -5,6 +5,10 @@ import (
 	"time"
 )
 
+// snapshotAutoUpdater manages periodic snapshot refreshes. It runs a background ticker
+// that calls Client.CheckSnapshot at the configured interval and invokes an optional
+// callback for status updates. Use Client.ScheduleSnapshotAutoUpdate to start and
+// Client.TerminateSnapshotAutoUpdate to stop.
 type snapshotAutoUpdater struct {
 	mu   sync.Mutex
 	stop chan struct{}
@@ -15,10 +19,20 @@ func newSnapshotAutoUpdater() *snapshotAutoUpdater {
 	return &snapshotAutoUpdater{}
 }
 
+// ScheduleSnapshotAutoUpdate configures the package default client to start automatic
+// snapshot updates at the given interval. The callback receives (error, updated) where
+// updated indicates whether a new snapshot version was applied.
+//
+// See README snapshot
+// management for recommendations: https://github.com/switcherapi/switcher-client-go#snapshot-management
 func ScheduleSnapshotAutoUpdate(interval time.Duration, callback func(error, bool)) {
 	defaultClient().ScheduleSnapshotAutoUpdate(interval, callback)
 }
 
+// ScheduleSnapshotAutoUpdate sets up automatic snapshot checks for this client.
+// If interval is zero or negative the client's configured SnapshotAutoUpdateInterval
+// is used. If the effective interval is still zero no updater is started. The
+// callback is invoked after each CheckSnapshot attempt with (error, updated).
 func (c *Client) ScheduleSnapshotAutoUpdate(interval time.Duration, callback func(error, bool)) {
 	if interval > 0 {
 		c.mu.Lock()
@@ -38,16 +52,23 @@ func (c *Client) ScheduleSnapshotAutoUpdate(interval time.Duration, callback fun
 	c.snapshotAutoUpdater.Start(c, effectiveInterval, callback)
 }
 
+// TerminateSnapshotAutoUpdate stops the package default client's automatic snapshot updater.
 func TerminateSnapshotAutoUpdate() {
 	defaultClient().TerminateSnapshotAutoUpdate()
 }
 
+// TerminateSnapshotAutoUpdate stops this client's automatic snapshot updater if running.
 func (c *Client) TerminateSnapshotAutoUpdate() {
 	if c.snapshotAutoUpdater != nil {
 		c.snapshotAutoUpdater.Stop()
 	}
 }
 
+// Start begins the periodic snapshot auto-update loop for the provided client.
+//
+// If an updater is already running it is stopped first. The goroutine waits for
+// the first interval before performing CheckSnapshot and then repeats on a ticker.
+// The callback receives (error, updated) after each CheckSnapshot invocation.
 func (u *snapshotAutoUpdater) Start(client *Client, interval time.Duration, callback func(error, bool)) {
 	u.Stop()
 
@@ -89,6 +110,8 @@ func (u *snapshotAutoUpdater) Start(client *Client, interval time.Duration, call
 	}()
 }
 
+// Stop terminates the running updater, signaling the background goroutine to exit
+// and waiting for it to complete.
 func (u *snapshotAutoUpdater) Stop() {
 	u.mu.Lock()
 	stop := u.stop

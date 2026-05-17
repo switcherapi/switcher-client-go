@@ -1,4 +1,4 @@
-.PHONY: test fmt cover cover-html lint lint-install
+.PHONY: test fmt cover cover-html lint lint-install godoc-install docs
 
 GOLANGCI_LINT_VERSION=v2.12.2
 
@@ -16,6 +16,9 @@ lint-install:
 
 lint:
 	golangci-lint run
+
+docs:
+	go doc -http
 
 cover:
 	go test -p 1 -coverprofile="coverage.out" ./...

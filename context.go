@@ -2,6 +2,7 @@ package client
 
 import "time"
 
+// Default configuration constants used when fields are not provided in Context or options.
 const (
 	DefaultEnvironment          = "default"
 	DefaultLocal                = false
@@ -14,12 +15,15 @@ const (
 	DefaultRemoteTimeout        = 5 * time.Second
 )
 
+// RemoteOptions configures remote transport behavior, timeouts and certificate path.
 type RemoteOptions struct {
 	CertPath       string
 	ConnectTimeout time.Duration
 	Timeout        time.Duration
 }
 
+// ContextOptions exposes advanced SDK behaviors such as local mode, snapshot management,
+// throttling and regex safety configuration. See README advanced configuration for details.
 type ContextOptions struct {
 	Local                      bool
 	Logger                     bool
@@ -34,6 +38,8 @@ type ContextOptions struct {
 	Remote                     RemoteOptions
 }
 
+// Context contains domain and environment-specific configuration for a Client.
+// BuildContext accepts this value to configure the package default client.
 type Context struct {
 	Domain      string
 	URL         string

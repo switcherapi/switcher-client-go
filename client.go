@@ -1,3 +1,7 @@
+// Package client provides the Switcher Client SDK for Go.
+//
+// For usage examples see README.md:
+// https://github.com/switcherapi/switcher-client-go#quick-start
 package client
 
 import (
@@ -10,6 +14,8 @@ var globalClient atomic.Pointer[Client]
 var getSwitcherAfterReadMissHook func()
 var defaultClientBeforeCompareAndSwapHook func()
 
+// Client is the primary SDK instance that holds configuration, cached snapshot, switchers
+// and background workers. Use NewClient to construct or BuildContext to set the package-wide client.
 type Client struct {
 	mu        sync.RWMutex
 	context   Context
@@ -33,6 +39,9 @@ type Client struct {
 	notifyErrorCallback func(error)
 }
 
+// NewClient creates a new Client with defaults applied from the provided Context.
+//
+// Use BuildContext to install a global package-level client.
 func NewClient(ctx Context) *Client {
 	defaulted := ctx.withDefaults()
 	return &Client{
@@ -45,6 +54,7 @@ func NewClient(ctx Context) *Client {
 	}
 }
 
+// BuildContext installs a package-level default client built from ctx.
 func BuildContext(ctx Context) {
 	client := NewClient(ctx)
 	if current := globalClient.Load(); current != nil {
@@ -55,6 +65,7 @@ func BuildContext(ctx Context) {
 	client.ScheduleSnapshotAutoUpdate(0, nil)
 }
 
+// Context returns the client's effective Context (configuration).
 func (c *Client) Context() Context {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -62,10 +73,15 @@ func (c *Client) Context() Context {
 	return c.context
 }
 
+// GetSwitcher returns a Switcher for key.
 func GetSwitcher(key string) *Switcher {
 	return defaultClient().GetSwitcher(key)
 }
 
+// GetSwitcher returns a Switcher instance bound to this Client.
+//
+// Created Switchers are cached
+// on the Client so subsequent calls for the same key return the same instance.
 func (c *Client) GetSwitcher(key string) *Switcher {
 	if key == "" {
 		return &Switcher{
@@ -100,10 +116,17 @@ func (c *Client) GetSwitcher(key string) *Switcher {
 	return switcher
 }
 
+// LoadSnapshot delegates to the default client to load snapshot data from disk and optionally remote.
+//
+// Returns the loaded snapshot version or an error.
 func LoadSnapshot(options *LoadSnapshotOptions) (int, error) {
 	return defaultClient().LoadSnapshot(options)
 }
 
+// LoadSnapshot loads the snapshot according to options.
+//
+// It can read local files, check remote version
+// and start watching for changes when requested.
 func (c *Client) LoadSnapshot(options *LoadSnapshotOptions) (int, error) {
 	settings := LoadSnapshotOptions{}
 	if options != nil {
@@ -129,10 +152,12 @@ func (c *Client) LoadSnapshot(options *LoadSnapshotOptions) (int, error) {
 	return c.SnapshotVersion(), nil
 }
 
+// SnapshotVersion returns current snapshot version from the package default client.
 func SnapshotVersion() int {
 	return defaultClient().SnapshotVersion()
 }
 
+// SnapshotVersion returns the client's current snapshot version (0 when not loaded).
 func (c *Client) SnapshotVersion() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -144,10 +169,16 @@ func (c *Client) SnapshotVersion() int {
 	return c.snapshot.Domain.Version
 }
 
+// CheckSnapshot checks the remote API for an updated snapshot and applies it when newer.
+//
+// Returns true when a new snapshot was applied.
 func CheckSnapshot() (bool, error) {
 	return defaultClient().CheckSnapshot()
 }
 
+// CheckSnapshot checks for and applies a newer snapshot from the remote API.
+//
+// Returns true when updated.
 func (c *Client) CheckSnapshot() (bool, error) {
 	token, err := c.ensureToken()
 	if err != nil {
@@ -180,10 +211,12 @@ func (c *Client) CheckSnapshot() (bool, error) {
 	return true, nil
 }
 
+// GetExecution retrieves the last execution log entry for the provided Switcher using the default client.
 func GetExecution(switcher *Switcher) ExecutionEntry {
 	return defaultClient().GetExecution(switcher)
 }
 
+// GetExecution returns the recorded execution entry for a Switcher, or an empty entry when nil.
 func (c *Client) GetExecution(switcher *Switcher) ExecutionEntry {
 	if switcher == nil {
 		return ExecutionEntry{}
@@ -193,18 +226,22 @@ func (c *Client) GetExecution(switcher *Switcher) ExecutionEntry {
 	return c.executionLogger.get(execution.key, execution.entries)
 }
 
+// ClearLogger clears the execution log cache on the default client.
 func ClearLogger() {
 	defaultClient().ClearLogger()
 }
 
+// ClearLogger clears the client's execution logger cache.
 func (c *Client) ClearLogger() {
 	c.executionLogger.clear()
 }
 
+// SubscribeNotifyError registers a callback to receive asynchronous SDK errors on the default client.
 func SubscribeNotifyError(callback func(error)) {
 	defaultClient().SubscribeNotifyError(callback)
 }
 
+// SubscribeNotifyError registers a per-client callback invoked when the SDK encounters errors.
 func (c *Client) SubscribeNotifyError(callback func(error)) {
 	c.notifyErrorMu.Lock()
 	defer c.notifyErrorMu.Unlock()

@@ -7,6 +7,11 @@ import (
 	"time"
 )
 
+// Switcher represents a feature-flag accessor bound to a specific switcher key.
+//
+// Obtain a Switcher via client.GetSwitcher or GetSwitcher("KEY").
+//
+// Quick Start: https://github.com/switcherapi/switcher-client-go#quick-start
 type Switcher struct {
 	client         *Client
 	key            string
@@ -24,6 +29,9 @@ const (
 	executionModeRemote
 )
 
+// Validate ensures the Client context and the Switcher key are properly configured.
+//
+// Returns an error describing missing fields when validation fails.
 func (s *Switcher) Validate() error {
 	ctx := s.client.Context()
 	missingFields := make([]string, 0, 3)
@@ -54,6 +62,8 @@ func (s *Switcher) Validate() error {
 	return nil
 }
 
+// CheckValue appends a value-based strategy input to this Switcher and returns the Switcher
+// to allow method chaining (fluent API).
 func (s *Switcher) CheckValue(input string) *Switcher {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -66,6 +76,8 @@ func (s *Switcher) CheckValue(input string) *Switcher {
 	return s
 }
 
+// CheckNetwork appends a network-based strategy input (e.g., IP or CIDR) to this Switcher
+// and returns the Switcher for chaining.
 func (s *Switcher) CheckNetwork(input string) *Switcher {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -78,6 +90,9 @@ func (s *Switcher) CheckNetwork(input string) *Switcher {
 	return s
 }
 
+// Throttle enables stale-while-revalidate behavior for this Switcher. When enabled the SDK
+// may return a cached result immediately and refresh the value in the background.
+// A non-positive period disables throttling for this Switcher.
 func (s *Switcher) Throttle(period time.Duration) *Switcher {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -95,6 +110,8 @@ func (s *Switcher) Throttle(period time.Duration) *Switcher {
 	return s
 }
 
+// Prepare validates the switcher can be executed and ensures an auth token is present.
+// If key is non-empty it will be set on the Switcher. Useful when preparing before execution.
 func (s *Switcher) Prepare(key string) error {
 	if strings.TrimSpace(key) != "" {
 		s.mu.Lock()
@@ -115,6 +132,8 @@ func (s *Switcher) Prepare(key string) error {
 	return missingTokenError(token)
 }
 
+// IsOn evaluates the Switcher and returns true when the feature is enabled.
+// It performs the standard execution flow and may return an error for remote failures.
 func (s *Switcher) IsOn() (bool, error) {
 	result, err := s.submit(false)
 	if err != nil {
@@ -124,6 +143,8 @@ func (s *Switcher) IsOn() (bool, error) {
 	return result.Result, nil
 }
 
+// IsOnWithDetails evaluates the Switcher and returns a ResultDetail containing the boolean
+// result plus metadata, reason and other execution information.
 func (s *Switcher) IsOnWithDetails() (ResultDetail, error) {
 	return s.submit(true)
 }
