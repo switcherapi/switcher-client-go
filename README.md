@@ -9,6 +9,7 @@ A Go SDK for Switcher API
 
 [![Master CI](https://github.com/switcherapi/switcher-client-go/actions/workflows/master.yml/badge.svg)](https://github.com/switcherapi/switcher-client-go/actions/workflows/master.yml)
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=switcherapi_switcher-client-go&metric=alert_status)](https://sonarcloud.io/dashboard?id=switcherapi_switcher-client-go)
+![Known Vulnerabilities](https://snyk.io/test/github/switcherapi/switcher-client-go/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/switcherapi/switcher-client-go)](https://goreportcard.com/report/github.com/switcherapi/switcher-client-go)
 ![Go](https://img.shields.io/badge/go-1.25%2B-blue.svg)
 ![Status](https://img.shields.io/badge/status-under_development-orange.svg)
@@ -325,11 +326,24 @@ client.SubscribeNotifyError(func(err error) {
 ## Advanced Features
 
 #### Throttling
+
+Throttle implements Stale-While-Revalidate behavior for feature flag evaluations, returning cached results while refreshing in the background. This is ideal for high-traffic scenarios where you want to minimize latency and avoid overwhelming the API with requests.
+
 ```go
 _, err := client.GetSwitcher("FEATURE01").Throttle(time.Second).IsOn()
 if err != nil {
 	panic(err)
 }
+```
+
+Throttle reuses the latest cached execution for the same switcher key and inputs. It records that cached execution even when `ContextOptions.Logger` is `false`, and when `Freeze` is enabled the cached value stays in place until `client.ClearLogger()` is called.
+
+```go
+switcher := client.GetSwitcher("FEATURE01").Throttle(time.Second)
+_, _ = switcher.IsOnWithDetails()
+
+logged := client.GetExecution(switcher)
+fmt.Println(logged.Response.Metadata["cached"])
 ```
 
 #### Hybrid Mode

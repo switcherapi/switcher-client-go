@@ -112,16 +112,11 @@ func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails boo
 	query.Set("showReason", strings.ToLower(strconvFormatBool(showDetails)))
 	query.Set("key", switcher.key)
 
-	entries := switcher.entries
-	if entries == nil {
-		entries = []criteriaEntry{}
-	}
-
 	response, err := c.doJSONRequest(
 		http.MethodPost,
 		endpoint+"?"+query.Encode(),
 		map[string]any{
-			"entry": entries,
+			"entry": switcher.entries,
 		},
 		c.authHeaders(token),
 	)

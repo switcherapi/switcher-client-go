@@ -3,13 +3,26 @@ package client
 import (
 	"fmt"
 	"strings"
+	"sync"
+	"time"
 )
 
 type Switcher struct {
-	client  *Client
-	key     string
-	entries []criteriaEntry
+	client         *Client
+	key            string
+	entries        []criteriaEntry
+	throttlePeriod time.Duration
+	nextRefreshAt  time.Time
+	mu             sync.RWMutex
 }
+
+type executionMode uint8
+
+const (
+	executionModeLocal executionMode = iota
+	executionModeSilentLocal
+	executionModeRemote
+)
 
 func (s *Switcher) Validate() error {
 	ctx := s.client.Context()
@@ -42,6 +55,9 @@ func (s *Switcher) Validate() error {
 }
 
 func (s *Switcher) CheckValue(input string) *Switcher {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.entries = upsertEntry(s.entries, criteriaEntry{
 		Strategy: StrategyValue,
 		Input:    input,
@@ -51,6 +67,9 @@ func (s *Switcher) CheckValue(input string) *Switcher {
 }
 
 func (s *Switcher) CheckNetwork(input string) *Switcher {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	s.entries = upsertEntry(s.entries, criteriaEntry{
 		Strategy: StrategyNetwork,
 		Input:    input,
@@ -59,12 +78,32 @@ func (s *Switcher) CheckNetwork(input string) *Switcher {
 	return s
 }
 
-func (s *Switcher) Prepare(key string) error {
-	if strings.TrimSpace(key) != "" {
-		s.key = key
+func (s *Switcher) Throttle(period time.Duration) *Switcher {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.throttlePeriod = period
+	if period <= 0 {
+		s.nextRefreshAt = time.Time{}
+		return s
 	}
 
-	if err := s.Validate(); err != nil {
+	if s.nextRefreshAt.IsZero() {
+		s.nextRefreshAt = time.Now().Add(period)
+	}
+
+	return s
+}
+
+func (s *Switcher) Prepare(key string) error {
+	if strings.TrimSpace(key) != "" {
+		s.mu.Lock()
+		s.key = key
+		s.mu.Unlock()
+	}
+
+	execution := s.snapshotForExecution()
+	if err := execution.Validate(); err != nil {
 		return err
 	}
 
@@ -90,24 +129,83 @@ func (s *Switcher) IsOnWithDetails() (ResultDetail, error) {
 }
 
 func (s *Switcher) submit(showDetails bool) (ResultDetail, error) {
-	if s.client.Context().Options.Local {
-		return checkLocalCriteria(s.client.snapshotState(), s)
+	execution := s.snapshotForExecution()
+	if cached, ok := s.tryCachedResult(execution, showDetails); ok {
+		return cached, nil
 	}
 
-	if err := s.Validate(); err != nil {
+	result, err := s.execute(execution, showDetails)
+	if err != nil {
 		return ResultDetail{}, err
 	}
 
-	if s.client.shouldUseLocalSilentMode() {
-		return checkLocalCriteria(s.client.snapshotState(), s)
+	s.markFreshExecution()
+	return result, nil
+}
+
+func (s *Switcher) tryCachedResult(execution *Switcher, showDetails bool) (ResultDetail, bool) {
+	if !execution.hasThrottle() {
+		return ResultDetail{}, false
 	}
 
-	token, err := s.client.ensureToken()
+	entry := execution.client.executionLogger.get(execution.key, execution.entries)
+	if entry.Key == "" {
+		return ResultDetail{}, false
+	}
+
+	if !execution.client.Context().Options.Freeze && s.shouldScheduleRefresh(time.Now()) {
+		s.scheduleBackgroundRefresh(execution, showDetails)
+	}
+
+	return entry.Response, true
+}
+
+func (s *Switcher) execute(execution *Switcher, showDetails bool) (ResultDetail, error) {
+	mode, err := execution.resolveExecutionMode()
 	if err != nil {
-		return s.client.fallbackToSilentMode(s, err)
+		return ResultDetail{}, err
 	}
 
-	if err := missingTokenError(token); err != nil {
+	result, err := execution.executeMode(mode, showDetails)
+	if err != nil {
+		return ResultDetail{}, err
+	}
+
+	execution.logResult(result)
+	return result, nil
+}
+
+func (s *Switcher) resolveExecutionMode() (executionMode, error) {
+	if s.client.Context().Options.Local {
+		return executionModeLocal, nil
+	}
+
+	if err := s.Validate(); err != nil {
+		return executionModeRemote, err
+	}
+
+	if s.client.shouldUseLocalSilentMode() {
+		return executionModeSilentLocal, nil
+	}
+
+	return executionModeRemote, nil
+}
+
+func (s *Switcher) executeMode(mode executionMode, showDetails bool) (ResultDetail, error) {
+	if mode == executionModeLocal || mode == executionModeSilentLocal {
+		return s.executeLocal()
+	}
+
+	return s.executeRemote(showDetails)
+}
+
+func (s *Switcher) executeLocal() (ResultDetail, error) {
+	return checkLocalCriteria(s.client.snapshotState(), s)
+}
+
+func (s *Switcher) executeRemote(showDetails bool) (ResultDetail, error) {
+	token, err := s.remoteToken()
+	if err != nil {
 		return s.client.fallbackToSilentMode(s, err)
 	}
 
@@ -117,6 +215,82 @@ func (s *Switcher) submit(showDetails bool) (ResultDetail, error) {
 	}
 
 	return result, nil
+}
+
+func (s *Switcher) remoteToken() (string, error) {
+	token, err := s.client.ensureToken()
+	if err != nil {
+		return "", err
+	}
+
+	if err := missingTokenError(token); err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func (s *Switcher) snapshotForExecution() *Switcher {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	clonedEntries := make([]criteriaEntry, len(s.entries))
+	copy(clonedEntries, s.entries)
+
+	return &Switcher{
+		client:         s.client,
+		key:            s.key,
+		entries:        clonedEntries,
+		throttlePeriod: s.throttlePeriod,
+		nextRefreshAt:  s.nextRefreshAt,
+	}
+}
+
+func (s *Switcher) logResult(result ResultDetail) {
+	if !s.canLog() {
+		return
+	}
+
+	s.client.executionLogger.add(s.key, s.entries, result)
+}
+
+func (s *Switcher) canLog() bool {
+	return strings.TrimSpace(s.key) != "" && (s.client.Context().Options.Logger || s.hasThrottle())
+}
+
+func (s *Switcher) hasThrottle() bool {
+	return s.throttlePeriod > 0
+}
+
+func (s *Switcher) markFreshExecution() {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.throttlePeriod <= 0 {
+		return
+	}
+
+	s.nextRefreshAt = time.Now().Add(s.throttlePeriod)
+}
+
+func (s *Switcher) shouldScheduleRefresh(now time.Time) bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if s.throttlePeriod <= 0 || s.nextRefreshAt.IsZero() || !now.After(s.nextRefreshAt) {
+		return false
+	}
+
+	s.nextRefreshAt = now.Add(s.throttlePeriod)
+	return true
+}
+
+func (s *Switcher) scheduleBackgroundRefresh(execution *Switcher, showDetails bool) {
+	s.client.runBackgroundTask(func() {
+		if _, err := s.execute(execution, showDetails); err != nil {
+			s.client.notifyError(err)
+		}
+	})
 }
 
 func upsertEntry(entries []criteriaEntry, next criteriaEntry) []criteriaEntry {

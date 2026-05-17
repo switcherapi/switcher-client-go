@@ -16,6 +16,9 @@ type Client struct {
 	switchers map[string]*Switcher
 	snapshot  *Snapshot
 
+	executionLogger *executionLogger
+	throttleTokens  chan struct{}
+
 	snapshotWatcher     *snapshotWatcher
 	snapshotAutoUpdater *snapshotAutoUpdater
 
@@ -31,9 +34,12 @@ type Client struct {
 }
 
 func NewClient(ctx Context) *Client {
+	defaulted := ctx.withDefaults()
 	return &Client{
-		context:             ctx.withDefaults(),
+		context:             defaulted,
 		switchers:           make(map[string]*Switcher),
+		executionLogger:     newExecutionLogger(),
+		throttleTokens:      newThrottleTokens(defaulted.Options.ThrottleMaxWorkers),
 		snapshotWatcher:     newSnapshotWatcher(),
 		snapshotAutoUpdater: newSnapshotAutoUpdater(),
 	}
@@ -47,6 +53,13 @@ func BuildContext(ctx Context) {
 	globalClient.Store(client)
 
 	client.ScheduleSnapshotAutoUpdate(0, nil)
+}
+
+func (c *Client) Context() Context {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	return c.context
 }
 
 func GetSwitcher(key string) *Switcher {
@@ -85,13 +98,6 @@ func (c *Client) GetSwitcher(key string) *Switcher {
 	}
 	c.switchers[key] = switcher
 	return switcher
-}
-
-func (c *Client) Context() Context {
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
-	return c.context
 }
 
 func LoadSnapshot(options *LoadSnapshotOptions) (int, error) {
@@ -174,6 +180,27 @@ func (c *Client) CheckSnapshot() (bool, error) {
 	return true, nil
 }
 
+func GetExecution(switcher *Switcher) ExecutionEntry {
+	return defaultClient().GetExecution(switcher)
+}
+
+func (c *Client) GetExecution(switcher *Switcher) ExecutionEntry {
+	if switcher == nil {
+		return ExecutionEntry{}
+	}
+
+	execution := switcher.snapshotForExecution()
+	return c.executionLogger.get(execution.key, execution.entries)
+}
+
+func ClearLogger() {
+	defaultClient().ClearLogger()
+}
+
+func (c *Client) ClearLogger() {
+	c.executionLogger.clear()
+}
+
 func SubscribeNotifyError(callback func(error)) {
 	defaultClient().SubscribeNotifyError(callback)
 }
@@ -195,6 +222,22 @@ func (c *Client) notifyError(err error) {
 	}
 }
 
+func (c *Client) runBackgroundTask(task func()) {
+	if c.throttleTokens == nil {
+		go task()
+		return
+	}
+
+	go func() {
+		c.throttleTokens <- struct{}{}
+		defer func() {
+			<-c.throttleTokens
+		}()
+
+		task()
+	}()
+}
+
 func defaultClient() *Client {
 	if client := globalClient.Load(); client != nil {
 		return client
@@ -209,4 +252,12 @@ func defaultClient() *Client {
 	}
 
 	return globalClient.Load()
+}
+
+func newThrottleTokens(maxWorkers int) chan struct{} {
+	if maxWorkers <= 0 {
+		return nil
+	}
+
+	return make(chan struct{}, maxWorkers)
 }
