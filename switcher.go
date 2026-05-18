@@ -149,6 +149,32 @@ func (s *Switcher) IsOnWithDetails() (ResultDetail, error) {
 	return s.submit(true)
 }
 
+// IsOnOrDefault evaluates the Switcher and returns the provided default boolean when an
+// error occurs. The client's error callback is notified when available.
+func (s *Switcher) IsOnOrDefault(def bool) bool {
+	got, err := s.IsOn()
+	if err != nil {
+		if s != nil && s.client != nil {
+			s.client.notifyError(err)
+		}
+		return def
+	}
+	return got
+}
+
+// IsOnWithDetailsOrDefault evaluates the Switcher and returns the provided default ResultDetail
+// when an error occurs. The client's error callback is notified when available.
+func (s *Switcher) IsOnWithDetailsOrDefault(def ResultDetail) ResultDetail {
+	res, err := s.IsOnWithDetails()
+	if err != nil {
+		if s != nil && s.client != nil {
+			s.client.notifyError(err)
+		}
+		return def
+	}
+	return res
+}
+
 func (s *Switcher) submit(showDetails bool) (ResultDetail, error) {
 	execution := s.snapshotForExecution()
 	if cached, ok := s.tryCachedResult(execution, showDetails); ok {
