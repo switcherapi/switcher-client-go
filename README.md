@@ -38,6 +38,7 @@ A Go SDK for Switcher API
 - [Usage Examples](#usage-examples)
 	- [Basic Feature Flag Checking](#basic-feature-flag-checking)
 	- [Detailed Response Information](#detailed-response-information)
+	- [Must-variant with default](#must-variant-with-default-response)
 	- [Strategy-Based Feature Flags](#strategy-based-feature-flags)
 	- [Error Handling](#error-handling)
 - [Advanced Features](#advanced-features)
@@ -266,6 +267,28 @@ if err != nil {
 fmt.Printf("Feature enabled: %v\n", response.Result)
 fmt.Printf("Reason: %s\n", response.Reason)
 fmt.Printf("Metadata: %#v\n", response.Metadata)
+```
+
+### Must-variant with default response:
+
+Simpified response handling with default values when errors occur:
+
+```go
+feature := client.GetSwitcher("FEATURE_LOGIN_V2")
+
+enabled = feature.IsOnOrDefault(false)
+response := feature.IsOnWithDetailsOrDefault(ResultDetail{
+	Result: false,
+	Reason: "default",
+})
+```
+
+Use the async error channel for non-blocking error handling:
+
+```go
+client.SubscribeNotifyError(func(err error) {
+	fmt.Printf("Switcher Error: %v\n", err)
+})
 ```
 
 ### Strategy-Based Feature Flags
