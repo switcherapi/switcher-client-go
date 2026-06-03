@@ -32,6 +32,10 @@ type criteriaResponse struct {
 	Metadata map[string]any `json:"metadata"`
 }
 
+type switchersCheckResponse struct {
+	NotFound []string `json:"not_found"`
+}
+
 type snapshotCheckResponse struct {
 	Status bool `json:"status"`
 }
@@ -141,6 +145,41 @@ func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails boo
 	}
 
 	return ResultDetail(payload), nil
+}
+
+func (c *Client) checkSwitchers(token string, switcherKeys []string) error {
+	ctx := c.Context()
+	endpoint := strings.TrimRight(ctx.URL, "/") + "/criteria/switchers_check"
+
+	response, err := c.doJSONRequest(
+		http.MethodPost,
+		endpoint,
+		map[string]any{
+			"switchers": switcherKeys,
+		},
+		c.authHeaders(token),
+	)
+	if err != nil {
+		return newRemoteError("[check_switchers] remote unavailable")
+	}
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	if response.StatusCode != http.StatusOK {
+		return newRemoteError("[check_switchers] failed with status: %d", response.StatusCode)
+	}
+
+	var payload switchersCheckResponse
+	if err := json.NewDecoder(response.Body).Decode(&payload); err != nil {
+		return err
+	}
+
+	if err := newRemoteSwitcherError(payload.NotFound); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Client) checkSnapshotVersion(token string, snapshotVersion int) (bool, error) {

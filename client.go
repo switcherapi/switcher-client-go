@@ -211,6 +211,30 @@ func (c *Client) CheckSnapshot() (bool, error) {
 	return true, nil
 }
 
+// CheckSwitchers validates that the provided switcher keys exist in the current snapshot
+// or on the remote API, depending on the client's mode.
+func CheckSwitchers(switcherKeys []string) error {
+	return defaultClient().CheckSwitchers(switcherKeys)
+}
+
+// CheckSwitchers validates switcher keys against local snapshot data or the remote API.
+func (c *Client) CheckSwitchers(switcherKeys []string) error {
+	if c.Context().Options.Local {
+		return checkLocalSwitchers(c.snapshotState(), switcherKeys)
+	}
+
+	token, err := c.ensureToken()
+	if err != nil {
+		return err
+	}
+
+	if err := missingTokenError(token); err != nil {
+		return err
+	}
+
+	return c.checkSwitchers(token, switcherKeys)
+}
+
 // GetExecution retrieves the last execution log entry for the provided Switcher using the default client.
 func GetExecution(switcher *Switcher) ExecutionEntry {
 	return defaultClient().GetExecution(switcher)

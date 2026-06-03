@@ -79,3 +79,25 @@ func findCriteriaEntry(entries []criteriaEntry, strategy string) (criteriaEntry,
 
 	return criteriaEntry{}, false
 }
+
+func checkLocalSwitchers(snapshot *Snapshot, switcherKeys []string) error {
+	if snapshot == nil {
+		return newLocalSwitcherError(switcherKeys)
+	}
+
+	found := make(map[string]struct{})
+	for _, group := range snapshot.Domain.Groups {
+		for _, config := range group.Configs {
+			found[config.Key] = struct{}{}
+		}
+	}
+
+	missing := make([]string, 0)
+	for _, key := range switcherKeys {
+		if _, ok := found[key]; !ok {
+			missing = append(missing, key)
+		}
+	}
+
+	return newLocalSwitcherError(missing)
+}
