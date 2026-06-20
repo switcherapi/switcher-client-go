@@ -16,7 +16,7 @@ jobs:
     steps:
     - name: Get PR details
       id: pr
-      uses: actions/github-script@v8
+      uses: actions/github-script@v9
       with:
         script: |
           const pr = await github.rest.pulls.get({
@@ -33,10 +33,10 @@ jobs:
         ref: ${{ steps.pr.outputs.head_sha }}
         fetch-depth: 0
 
-    - name: Set up Go 1.26.3
+    - name: Set up Go 1.26.4
       uses: actions/setup-go@v6
       with:
-        go-version: '1.26.3'
+        go-version: '1.26.4'
 
     - name: Build
       run: go build -v ./...
@@ -50,7 +50,7 @@ jobs:
       run: go test -p 1 -v ./... -coverprofile="coverage.out"
 
     - name: SonarCloud Scan
-      uses: sonarsource/sonarqube-scan-action@v8.1.0
+      uses: sonarsource/sonarqube-scan-action@v8.2.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       if: env.SONAR_TOKEN != ''

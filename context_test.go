@@ -12,14 +12,14 @@ func TestBuildContext(t *testing.T) {
 			Domain: "My Domain",
 			Options: ContextOptions{
 				Local:            true,
-				SnapshotLocation: "./tests/snapshots",
+				SnapshotLocation: "./testdata/snapshots",
 			},
 		})
 
 		options := client.Context().Options
 
 		assert.True(t, options.Local, "expected Local option to be true")
-		assert.Equal(t, "./tests/snapshots", options.SnapshotLocation, "expected SnapshotLocation to be './tests/snapshots'")
+		assert.Equal(t, "./testdata/snapshots", options.SnapshotLocation, "expected SnapshotLocation to be './testdata/snapshots'")
 	})
 
 	t.Run("should create fresh default options on rebuild", func(t *testing.T) {
