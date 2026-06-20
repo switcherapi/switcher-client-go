@@ -287,28 +287,26 @@ func (c *Client) doJSONRequest(method, endpoint string, payload any, headers map
 		request.Header.Set(key, value)
 	}
 
-	return c.httpClient().Do(request)
+	client, err := c.httpClient()
+	if err != nil {
+		return nil, err
+	}
+
+	return client.Do(request)
 }
 
-func (c *Client) httpClient() *http.Client {
+func (c *Client) httpClient() (*http.Client, error) {
 	c.httpClientMu.Lock()
 	defer c.httpClientMu.Unlock()
 
 	if c.httpClient_ != nil {
-		return c.httpClient_
+		return c.httpClient_, nil
 	}
 
 	ctx := c.Context()
-	dialer := &net.Dialer{
-		Timeout: ctx.Options.Remote.ConnectTimeout,
-	}
-
-	transport := &http.Transport{
-		DialContext:         dialer.DialContext,
-		TLSHandshakeTimeout: ctx.Options.Remote.ConnectTimeout,
-		TLSClientConfig: &tls.Config{
-			MinVersion: tls.VersionTLS12,
-		},
+	transport, err := newRemoteTransport(ctx)
+	if err != nil {
+		return nil, err
 	}
 
 	c.httpClient_ = &http.Client{
@@ -316,7 +314,33 @@ func (c *Client) httpClient() *http.Client {
 		Timeout:   cmp.Or(ctx.Options.Remote.Timeout, DefaultRemoteTimeout),
 	}
 
-	return c.httpClient_
+	return c.httpClient_, nil
+}
+
+func newRemoteTransport(ctx Context) (*http.Transport, error) {
+	dialer := &net.Dialer{
+		Timeout: ctx.Options.Remote.ConnectTimeout,
+	}
+
+	tlsConfig := &tls.Config{
+		MinVersion: tls.VersionTLS12,
+	}
+
+	certPath := strings.TrimSpace(ctx.Options.Remote.CertPath)
+	if certPath != "" {
+		certificate, err := tls.LoadX509KeyPair(certPath, certPath)
+		if err != nil {
+			return nil, fmt.Errorf("loading remote certificate %q: %w", certPath, err)
+		}
+
+		tlsConfig.Certificates = []tls.Certificate{certificate}
+	}
+
+	return &http.Transport{
+		DialContext:         dialer.DialContext,
+		TLSHandshakeTimeout: ctx.Options.Remote.ConnectTimeout,
+		TLSClientConfig:     tlsConfig,
+	}, nil
 }
 
 func missingTokenError(token string) error {

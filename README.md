@@ -189,7 +189,7 @@ func main() {
 			RegexMaxBlacklist:          10,
 			RegexMaxTimeLimit:          100 * time.Millisecond,
 			Remote: client.RemoteOptions{
-				CertPath:       "./certs/ca.pem",
+				CertPath:       "./certs/client.pem",
 				ConnectTimeout: 300 * time.Millisecond,
 				Timeout:        5 * time.Second,
 			},
@@ -221,7 +221,7 @@ func main() {
 
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
-| `CertPath` | `string` | Path to custom certificate for secure API connections | `""` |
+| `CertPath` | `string` | Path to a PEM bundle containing the client certificate and private key for secure API connections | `""` |
 | `ConnectTimeout` | `time.Duration` | Max time to establish a remote connection before failing fast | `300ms` |
 | `Timeout` | `time.Duration` | Max time for remote request/response and idle connection reuse | `5s` |
 
@@ -231,7 +231,7 @@ func main() {
 
 - **ReDoS Protection (Under development)**: Regex safety features with bounded execution time
 - **Time Limits**: Configurable timeouts for regex and remote operations
-- **Certificate Support**: Custom certificates for secure API connections
+- **Certificate Support**: PEM client-certificate bundles for secure API connections
 
 ## Usage Examples
 
