@@ -236,5 +236,5 @@ func useLocalSnapshotFixture(t *testing.T, environment string) {
 }
 
 func snapshotFixtureDir() string {
-	return filepath.Join("tests", "snapshots")
+	return filepath.Join("testdata", "snapshots")
 }

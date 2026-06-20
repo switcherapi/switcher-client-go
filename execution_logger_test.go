@@ -170,7 +170,7 @@ func TestExecutionLogger(t *testing.T) {
 			Options: ContextOptions{
 				Local:            true,
 				Logger:           true,
-				SnapshotLocation: filepath.Join("tests", "snapshots"),
+				SnapshotLocation: filepath.Join("testdata", "snapshots"),
 			},
 		})
 
