@@ -177,6 +177,12 @@ func (s *Switcher) IsOnWithDetailsOrDefault(def ResultDetail) ResultDetail {
 
 func (s *Switcher) submit(showDetails bool) (ResultDetail, error) {
 	execution := s.snapshotForExecution()
+	if mocked, ok := execution.client.mockedResult(execution); ok {
+		execution.logResult(mocked)
+		s.markFreshExecution()
+		return mocked, nil
+	}
+
 	if cached, ok := s.tryCachedResult(execution, showDetails); ok {
 		return cached, nil
 	}
