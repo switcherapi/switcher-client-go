@@ -52,7 +52,6 @@ A Go SDK for Switcher API
 	- [Snapshot Monitoring](#snapshot-monitoring)
 - [Testing & Development](#testing--development)
 	- [Built-in Mocking](#built-in-mocking)
-	- [Test Helpers](#test-helpers)
 	- [Configuration Validation](#configuration-validation)
 - [Contributing](#contributing)
 
@@ -484,9 +483,9 @@ if err != nil {
 
 ## Testing & Development
 
-### Built-in Mocking (Under development)
+### Built-in Mocking
 
-The Go SDK provides test-oriented mocking capabilities adapted to Go idioms and safer state ownership.
+The Go SDK provides client-scoped test mocking adapted to Go idioms and safer state ownership.
 
 ```go
 sdk := client.NewClient(ctx)
@@ -495,6 +494,10 @@ sdk.Assume("FEATURE01").True()
 enabled, err := sdk.GetSwitcher("FEATURE01").IsOn()
 assert.NoError(t, err)
 assert.True(t, enabled)
+```
+
+```go
+sdk.Assume("FEATURE01").True().Cleanup(t)
 ```
 
 ```go
@@ -525,13 +528,7 @@ assert.Equal(t, false, response.Result)
 assert.Equal(t, "Feature is disabled", response.Metadata["message"])
 ```
 
-### Test Helpers (Under development)
-
-This area is under active development. The helper surface focuses on:
-
-- explicit test helpers instead of decorators
-- automatic cleanup helpers for tests where useful
-- mock isolation by client instance and, when needed, `context.Context`
+Mocks stay scoped to the `sdk` instance. Remove them explicitly with `sdk.Forget("FEATURE01")` or register automatic test cleanup with `.Cleanup(t)`.
 
 ### Configuration Validation
 

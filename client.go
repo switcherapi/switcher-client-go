@@ -22,6 +22,9 @@ type Client struct {
 	switchers map[string]*Switcher
 	snapshot  *Snapshot
 
+	mockMu sync.RWMutex
+	mocks  map[string]*mockDefinition
+
 	executionLogger *executionLogger
 	throttleTokens  chan struct{}
 
@@ -47,6 +50,7 @@ func NewClient(ctx Context) *Client {
 	return &Client{
 		context:             defaulted,
 		switchers:           make(map[string]*Switcher),
+		mocks:               make(map[string]*mockDefinition),
 		executionLogger:     newExecutionLogger(),
 		throttleTokens:      newThrottleTokens(defaulted.Options.ThrottleMaxWorkers),
 		snapshotWatcher:     newSnapshotWatcher(),
