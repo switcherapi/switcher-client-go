@@ -77,6 +77,36 @@ func TestExecutionLogger(t *testing.T) {
 		assert.Equal(t, ExecutionEntry{}, logged)
 	})
 
+	t.Run("should log generic strategy checks and retrieve them by switcher", func(t *testing.T) {
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			criteriaStatus: http.StatusOK,
+			criteriaBody:   map[string]any{"result": true},
+		})
+		defer server.Close()
+
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       server.URL,
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+			Options: ContextOptions{
+				Logger: true,
+			},
+		})
+
+		got, err := client.GetSwitcher("MY_SWITCHER").Check(StrategyRegex, "USER_11").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+
+		logged := client.GetExecution(client.GetSwitcher("MY_SWITCHER").Check(StrategyRegex, "USER_11"))
+		assert.Equal(t, "MY_SWITCHER", logged.Key)
+		assert.Equal(t, []ExecutionInput{{Strategy: StrategyRegex, Input: "USER_11"}}, logged.Inputs)
+		assert.True(t, logged.Response.Result)
+	})
+
 	t.Run("should return empty execution when the logged entry has inputs and the lookup has none", func(t *testing.T) {
 		server := newRemoteTestServer(t, remoteTestHandlers{
 			authStatus:     http.StatusOK,

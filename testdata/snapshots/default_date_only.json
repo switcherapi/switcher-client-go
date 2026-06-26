@@ -1,0 +1,51 @@
+{
+    "domain": {
+        "name": "Business",
+        "activated": true,
+        "version": 1,
+        "group": [
+            {
+                "name": "Date tests",
+                "activated": true,
+                "config": [
+                    {
+                        "key": "DATE_LOWER",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "DATE_VALIDATION",
+                                "activated": true,
+                                "operation": "LOWER",
+                                "values": ["2019-12-01"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "DATE_GREATER",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "DATE_VALIDATION",
+                                "activated": true,
+                                "operation": "GREATER",
+                                "values": ["2019-12-01"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "DATE_BETWEEN",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "DATE_VALIDATION",
+                                "activated": true,
+                                "operation": "BETWEEN",
+                                "values": ["2019-12-01", "2019-12-05"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

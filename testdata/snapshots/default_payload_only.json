@@ -1,0 +1,39 @@
+{
+    "domain": {
+        "name": "Business",
+        "activated": true,
+        "version": 1,
+        "group": [
+            {
+                "name": "Payload tests",
+                "activated": true,
+                "config": [
+                    {
+                        "key": "PAYLOAD_HAS_ONE",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "PAYLOAD_VALIDATION",
+                                "activated": true,
+                                "operation": "HAS_ONE",
+                                "values": ["missing", "order.qty"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "PAYLOAD_HAS_ALL",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "PAYLOAD_VALIDATION",
+                                "activated": true,
+                                "operation": "HAS_ALL",
+                                "values": ["id", "user", "user.role"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

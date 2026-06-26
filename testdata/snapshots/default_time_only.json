@@ -1,0 +1,51 @@
+{
+    "domain": {
+        "name": "Business",
+        "activated": true,
+        "version": 1,
+        "group": [
+            {
+                "name": "Time tests",
+                "activated": true,
+                "config": [
+                    {
+                        "key": "TIME_LOWER",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "TIME_VALIDATION",
+                                "activated": true,
+                                "operation": "LOWER",
+                                "values": ["08:00"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "TIME_GREATER",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "TIME_VALIDATION",
+                                "activated": true,
+                                "operation": "GREATER",
+                                "values": ["08:00"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "TIME_BETWEEN",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "TIME_VALIDATION",
+                                "activated": true,
+                                "operation": "BETWEEN",
+                                "values": ["08:00", "10:00"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

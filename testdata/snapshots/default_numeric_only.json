@@ -1,0 +1,99 @@
+{
+    "domain": {
+        "name": "Business",
+        "activated": true,
+        "version": 1,
+        "group": [
+            {
+                "name": "Numeric tests",
+                "activated": true,
+                "config": [
+                    {
+                        "key": "NUMERIC_EXIST",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NUMERIC_VALIDATION",
+                                "activated": true,
+                                "operation": "EXIST",
+                                "values": ["1", "3"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "NUMERIC_NOT_EXIST",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NUMERIC_VALIDATION",
+                                "activated": true,
+                                "operation": "NOT_EXIST",
+                                "values": ["1", "3"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "NUMERIC_EQUAL",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NUMERIC_VALIDATION",
+                                "activated": true,
+                                "operation": "EQUAL",
+                                "values": ["7"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "NUMERIC_NOT_EQUAL",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NUMERIC_VALIDATION",
+                                "activated": true,
+                                "operation": "NOT_EQUAL",
+                                "values": ["7"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "NUMERIC_GREATER",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NUMERIC_VALIDATION",
+                                "activated": true,
+                                "operation": "GREATER",
+                                "values": ["10"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "NUMERIC_LOWER",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NUMERIC_VALIDATION",
+                                "activated": true,
+                                "operation": "LOWER",
+                                "values": ["10"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "NUMERIC_BETWEEN",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "NUMERIC_VALIDATION",
+                                "activated": true,
+                                "operation": "BETWEEN",
+                                "values": ["10", "20"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

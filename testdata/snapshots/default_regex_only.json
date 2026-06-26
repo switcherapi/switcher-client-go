@@ -1,0 +1,63 @@
+{
+    "domain": {
+        "name": "Business",
+        "activated": true,
+        "version": 1,
+        "group": [
+            {
+                "name": "Regex tests",
+                "activated": true,
+                "config": [
+                    {
+                        "key": "REGEX_EXIST",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "REGEX_VALIDATION",
+                                "activated": true,
+                                "operation": "EXIST",
+                                "values": ["\\bUSER_[0-9]{1,2}\\b"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "REGEX_NOT_EXIST",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "REGEX_VALIDATION",
+                                "activated": true,
+                                "operation": "NOT_EXIST",
+                                "values": ["\\bUSER_[0-9]{1,2}\\b"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "REGEX_EQUAL",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "REGEX_VALIDATION",
+                                "activated": true,
+                                "operation": "EQUAL",
+                                "values": ["USER_[0-9]{1,2}"]
+                            }
+                        ]
+                    },
+                    {
+                        "key": "REGEX_NOT_EQUAL",
+                        "activated": true,
+                        "strategies": [
+                            {
+                                "strategy": "REGEX_VALIDATION",
+                                "activated": true,
+                                "operation": "NOT_EQUAL",
+                                "values": ["USER_[0-9]{1,2}"]
+                            }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

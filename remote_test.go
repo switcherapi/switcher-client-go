@@ -64,6 +64,35 @@ func TestSwitcherRemoteEvaluation(t *testing.T) {
 		}, captured)
 	})
 
+	t.Run("should send generic strategy inputs to the remote criteria endpoint", func(t *testing.T) {
+		var captured map[string]any
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			criteriaStatus: http.StatusOK,
+			criteriaBody:   map[string]any{"result": true},
+			onCriteriaRequest: func(body map[string]any, _ *http.Request) {
+				captured = body
+			},
+		})
+		defer server.Close()
+
+		client := newRemoteTestClient(server.URL)
+
+		got, err := client.GetSwitcher("MY_SWITCHER").Check(StrategyNumeric, "7").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+		assert.Equal(t, map[string]any{
+			"entry": []any{
+				map[string]any{
+					"strategy": StrategyNumeric,
+					"input":    "7",
+				},
+			},
+		}, captured)
+	})
+
 	t.Run("should return response from the remote API without requesting details", func(t *testing.T) {
 		server := newRemoteTestServer(t, remoteTestHandlers{
 			authStatus:     http.StatusOK,
