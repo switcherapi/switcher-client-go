@@ -62,32 +62,58 @@ func (s *Switcher) Validate() error {
 	return nil
 }
 
-// CheckValue appends a value-based strategy input to this Switcher and returns the Switcher
+// Check appends or replaces a strategy input on this Switcher and returns the Switcher
 // to allow method chaining (fluent API).
-func (s *Switcher) CheckValue(input string) *Switcher {
+func (s *Switcher) Check(strategy, input string) *Switcher {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	s.entries = upsertEntry(s.entries, criteriaEntry{
-		Strategy: StrategyValue,
+		Strategy: strategy,
 		Input:    input,
 	})
 
 	return s
 }
 
+// CheckValue appends a value-based strategy input to this Switcher and returns the Switcher
+// to allow method chaining (fluent API).
+func (s *Switcher) CheckValue(input string) *Switcher {
+	return s.Check(StrategyValue, input)
+}
+
+// CheckNumeric appends a numeric strategy input to this Switcher and returns the Switcher
+// for chaining.
+func (s *Switcher) CheckNumeric(input string) *Switcher {
+	return s.Check(StrategyNumeric, input)
+}
+
+// CheckDate appends a date strategy input to this Switcher and returns the Switcher for chaining.
+func (s *Switcher) CheckDate(input string) *Switcher {
+	return s.Check(StrategyDate, input)
+}
+
+// CheckTime appends a time strategy input to this Switcher and returns the Switcher for chaining.
+func (s *Switcher) CheckTime(input string) *Switcher {
+	return s.Check(StrategyTime, input)
+}
+
+// CheckPayload appends a payload strategy input to this Switcher and returns the Switcher
+// for chaining.
+func (s *Switcher) CheckPayload(input string) *Switcher {
+	return s.Check(StrategyPayload, input)
+}
+
 // CheckNetwork appends a network-based strategy input (e.g., IP or CIDR) to this Switcher
 // and returns the Switcher for chaining.
 func (s *Switcher) CheckNetwork(input string) *Switcher {
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	return s.Check(StrategyNetwork, input)
+}
 
-	s.entries = upsertEntry(s.entries, criteriaEntry{
-		Strategy: StrategyNetwork,
-		Input:    input,
-	})
-
-	return s
+// CheckRegex appends a regex strategy input to this Switcher and returns the Switcher
+// for chaining.
+func (s *Switcher) CheckRegex(input string) *Switcher {
+	return s.Check(StrategyRegex, input)
 }
 
 // Throttle enables stale-while-revalidate behavior for this Switcher. When enabled the SDK

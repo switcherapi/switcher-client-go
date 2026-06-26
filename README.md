@@ -298,7 +298,7 @@ Load validation data separately, useful for complex applications:
 
 ```go
 prepared := client.GetSwitcher("").
-	CheckValue("USER_123")
+	Check(client.StrategyValue, "USER_123")
 
 if err := prepared.Prepare("USER_FEATURE"); err != nil {
 	panic(err)
@@ -321,8 +321,12 @@ Chain multiple validation strategies for comprehensive feature control:
 ```go
 isEnabled, err := client.GetSwitcher("PREMIUM_FEATURES").
 	CheckValue("premium_user").
+	CheckNumeric("42").
+	CheckDate("2026-06-24").
+	CheckTime("09:30").
+	CheckPayload(`{"tier":"premium","account":{"region":"us"}}`).
 	CheckNetwork("192.168.1.0/24").
-	DefaultResult(true).
+	CheckRegex(`premium_[a-z]+`).
 	Throttle(time.Second).
 	IsOn()
 
@@ -334,6 +338,9 @@ if isEnabled {
 	showPremiumDashboard()
 }
 ```
+
+Supported convenience helpers map to the same generic entry-point: `CheckValue`, `CheckNumeric`,
+`CheckDate`, `CheckTime`, `CheckPayload`, `CheckNetwork`, and `CheckRegex`.
 
 ### Error Handling
 

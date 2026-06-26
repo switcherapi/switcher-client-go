@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestSwitcherLocalEvaluation(t *testing.T) {
+func TestSwitcherLocalEvaluationCommonBehavior(t *testing.T) {
 	t.Run("should use local snapshot to evaluate a switcher without strategies", func(t *testing.T) {
 		useLocalSnapshotFixture(t, "default")
 
@@ -21,6 +21,66 @@ func TestSwitcherLocalEvaluation(t *testing.T) {
 		useLocalSnapshotFixture(t, "default_value_only")
 
 		got, err := GetSwitcher("FF2FOR2020").CheckValue("Japan").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return disabled when the domain is deactivated", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_disabled")
+
+		got, err := GetSwitcher("FEATURE").IsOnWithDetails()
+
+		assert.NoError(t, err)
+		assert.False(t, got.Result)
+		assert.Equal(t, "Domain is disabled", got.Reason)
+	})
+
+	t.Run("should return disabled when the group is deactivated", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default")
+
+		got, err := GetSwitcher("FF2FOR2040").IsOnWithDetails()
+
+		assert.NoError(t, err)
+		assert.False(t, got.Result)
+		assert.Equal(t, "Group disabled", got.Reason)
+	})
+
+	t.Run("should return disabled when the config is deactivated", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default")
+
+		got, err := GetSwitcher("FF2FOR2031").IsOnWithDetails()
+
+		assert.NoError(t, err)
+		assert.False(t, got.Result)
+		assert.Equal(t, "Config disabled", got.Reason)
+	})
+
+	t.Run("should return enabled when the strategy is deactivated", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default")
+
+		got, err := GetSwitcher("FF2FOR2021").CheckNetwork("10.0.0.3").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return disabled when relay is enabled and relay restriction is active", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default")
+
+		got, err := GetSwitcher("USECASE103").IsOnWithDetails()
+
+		assert.NoError(t, err)
+		assert.False(t, got.Result)
+		assert.Equal(t, "Config has relay enabled", got.Reason)
+	})
+}
+
+func TestSwitcherLocalEvaluationValueStrategies(t *testing.T) {
+	t.Run("should use local snapshot to evaluate a switcher with the generic check API", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_value_only")
+
+		got, err := GetSwitcher("FF2FOR2020").Check(StrategyValue, "Japan").IsOn()
 
 		assert.NoError(t, err)
 		assert.True(t, got)
@@ -83,46 +143,9 @@ func TestSwitcherLocalEvaluation(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, got)
 	})
+}
 
-	t.Run("should return disabled when the domain is deactivated", func(t *testing.T) {
-		useLocalSnapshotFixture(t, "default_disabled")
-
-		got, err := GetSwitcher("FEATURE").IsOnWithDetails()
-
-		assert.NoError(t, err)
-		assert.False(t, got.Result)
-		assert.Equal(t, "Domain is disabled", got.Reason)
-	})
-
-	t.Run("should return disabled when the group is deactivated", func(t *testing.T) {
-		useLocalSnapshotFixture(t, "default")
-
-		got, err := GetSwitcher("FF2FOR2040").IsOnWithDetails()
-
-		assert.NoError(t, err)
-		assert.False(t, got.Result)
-		assert.Equal(t, "Group disabled", got.Reason)
-	})
-
-	t.Run("should return disabled when the config is deactivated", func(t *testing.T) {
-		useLocalSnapshotFixture(t, "default")
-
-		got, err := GetSwitcher("FF2FOR2031").IsOnWithDetails()
-
-		assert.NoError(t, err)
-		assert.False(t, got.Result)
-		assert.Equal(t, "Config disabled", got.Reason)
-	})
-
-	t.Run("should return enabled when the strategy is deactivated", func(t *testing.T) {
-		useLocalSnapshotFixture(t, "default")
-
-		got, err := GetSwitcher("FF2FOR2021").CheckNetwork("10.0.0.3").IsOn()
-
-		assert.NoError(t, err)
-		assert.True(t, got)
-	})
-
+func TestSwitcherLocalEvaluationNetworkStrategies(t *testing.T) {
 	t.Run("should return enabled when the network input is inside a CIDR range", func(t *testing.T) {
 		useLocalSnapshotFixture(t, "default_network_only")
 
@@ -179,17 +202,199 @@ func TestSwitcherLocalEvaluation(t *testing.T) {
 		assert.False(t, got.Result)
 		assert.Equal(t, "Strategy 'NETWORK_VALIDATION' does not agree", got.Reason)
 	})
+}
 
-	t.Run("should return disabled when relay is enabled and relay restriction is active", func(t *testing.T) {
-		useLocalSnapshotFixture(t, "default")
+func TestSwitcherLocalEvaluationNumericStrategies(t *testing.T) {
+	t.Run("should return enabled when numeric EXIST matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_numeric_only")
 
-		got, err := GetSwitcher("USECASE103").IsOnWithDetails()
+		got, err := GetSwitcher("NUMERIC_EXIST").CheckNumeric("3").IsOn()
 
 		assert.NoError(t, err)
-		assert.False(t, got.Result)
-		assert.Equal(t, "Config has relay enabled", got.Reason)
+		assert.True(t, got)
 	})
 
+	t.Run("should return enabled when numeric NOT_EXIST does not match the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_numeric_only")
+
+		got, err := GetSwitcher("NUMERIC_NOT_EXIST").CheckNumeric("2").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when numeric EQUAL matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_numeric_only")
+
+		got, err := GetSwitcher("NUMERIC_EQUAL").CheckNumeric("7").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when numeric NOT_EQUAL differs from the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_numeric_only")
+
+		got, err := GetSwitcher("NUMERIC_NOT_EQUAL").CheckNumeric("8").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when numeric GREATER matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_numeric_only")
+
+		got, err := GetSwitcher("NUMERIC_GREATER").CheckNumeric("11").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when numeric LOWER matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_numeric_only")
+
+		got, err := GetSwitcher("NUMERIC_LOWER").CheckNumeric("9").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when numeric BETWEEN matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_numeric_only")
+
+		got, err := GetSwitcher("NUMERIC_BETWEEN").CheckNumeric("15").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+}
+
+func TestSwitcherLocalEvaluationDateStrategies(t *testing.T) {
+	t.Run("should return enabled when date LOWER matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_date_only")
+
+		got, err := GetSwitcher("DATE_LOWER").CheckDate("2019-11-30").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when date GREATER matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_date_only")
+
+		got, err := GetSwitcher("DATE_GREATER").CheckDate("2019-12-02").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when date BETWEEN matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_date_only")
+
+		got, err := GetSwitcher("DATE_BETWEEN").CheckDate("2019-12-03").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+}
+
+func TestSwitcherLocalEvaluationTimeStrategies(t *testing.T) {
+	t.Run("should return enabled when time LOWER matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_time_only")
+
+		got, err := GetSwitcher("TIME_LOWER").CheckTime("06:00").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when time GREATER matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_time_only")
+
+		got, err := GetSwitcher("TIME_GREATER").CheckTime("10:00").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when time BETWEEN matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_time_only")
+
+		got, err := GetSwitcher("TIME_BETWEEN").CheckTime("09:00").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+}
+
+func TestSwitcherLocalEvaluationPayloadStrategies(t *testing.T) {
+	t.Run("should return enabled when payload HAS_ONE matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_payload_only")
+
+		got, err := GetSwitcher("PAYLOAD_HAS_ONE").CheckPayload(`{"id":"1","order":{"qty":2}}`).IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when payload HAS_ALL matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_payload_only")
+
+		got, err := GetSwitcher("PAYLOAD_HAS_ALL").CheckPayload(`{"id":"1","user":{"role":"admin"}}`).IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+}
+
+func TestSwitcherLocalEvaluationRegexStrategies(t *testing.T) {
+	t.Run("should return enabled when regex EXIST matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_regex_only")
+
+		got, err := GetSwitcher("REGEX_EXIST").CheckRegex("USER_11").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when regex NOT_EXIST does not match the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_regex_only")
+
+		got, err := GetSwitcher("REGEX_NOT_EXIST").CheckRegex("USER_123").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when regex EQUAL matches the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_regex_only")
+
+		got, err := GetSwitcher("REGEX_EQUAL").CheckRegex("USER_11").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should return enabled when regex NOT_EQUAL differs from the input", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_regex_only")
+
+		got, err := GetSwitcher("REGEX_NOT_EQUAL").CheckRegex("USER_123").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should use the generic check API with non-value strategies", func(t *testing.T) {
+		useLocalSnapshotFixture(t, "default_regex_only")
+
+		got, err := GetSwitcher("REGEX_EQUAL").Check(StrategyRegex, "USER_11").IsOn()
+
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+}
+
+func TestSwitcherLocalEvaluationErrors(t *testing.T) {
 	t.Run("should return an error when the key is not found in the snapshot", func(t *testing.T) {
 		useLocalSnapshotFixture(t, "default")
 
