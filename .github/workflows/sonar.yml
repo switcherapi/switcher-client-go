@@ -59,3 +59,8 @@ jobs:
           -Dsonar.pullrequest.key=${{ inputs.pr_id }}
           -Dsonar.pullrequest.branch=${{ steps.pr.outputs.head_ref }}
           -Dsonar.pullrequest.base=${{ steps.pr.outputs.base_ref }}
+
+    - name: Vulnerability Check
+      run: |
+        go install golang.org/x/vuln/cmd/govulncheck@3e6f44f962742443c11ae2261f02e0c917aeb2bc
+        govulncheck ./...
