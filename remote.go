@@ -57,12 +57,39 @@ func (c *Client) authHeaders(token string) map[string]string {
 
 func (c *Client) ensureToken() (string, error) {
 	c.authMu.Lock()
-	defer c.authMu.Unlock()
 
 	if strings.TrimSpace(c.authToken) != "" && c.authToken != silentModeAuthToken && !tokenExpired(c.authTokenExp) {
-		return c.authToken, nil
+		token := c.authToken
+		c.authMu.Unlock()
+		return token, nil
+	}
+	c.authMu.Unlock()
+
+	token, exp, err := c.authenticate()
+	if err != nil {
+		return "", err
 	}
 
+	c.authMu.Lock()
+	c.authToken = token
+	c.authTokenExp = exp
+	c.authMu.Unlock()
+
+	if token != "" {
+		ctx := c.Context()
+		if ctx.Options.Remote.AutoRenewToken {
+			c.autoRenewer.schedule(c, exp)
+		}
+	}
+
+	return token, nil
+}
+
+// authenticate performs the remote authentication request and returns the parsed
+// token and expiration without mutating client state or acquiring authMu, so it can
+// be reused by both the lazy foreground ensureToken path and the background
+// token auto-renewer.
+func (c *Client) authenticate() (string, int64, error) {
 	ctx := c.Context()
 	endpoint := strings.TrimRight(ctx.URL, "/") + "/criteria/auth"
 
@@ -80,32 +107,29 @@ func (c *Client) ensureToken() (string, error) {
 		},
 	)
 	if err != nil {
-		return "", newRemoteAuthError("[auth] remote unavailable")
+		return "", 0, newRemoteAuthError("[auth] remote unavailable")
 	}
 	defer func() {
 		_ = response.Body.Close()
 	}()
 
 	if response.StatusCode != http.StatusOK {
-		return "", newRemoteAuthError("invalid API key")
+		return "", 0, newRemoteAuthError("invalid API key")
 	}
 
 	var payload authResponse
 	decoder := json.NewDecoder(response.Body)
 	decoder.UseNumber()
 	if err := decoder.Decode(&payload); err != nil {
-		return "", err
+		return "", 0, err
 	}
 
+	exp := parseTokenExpiration(payload.Exp)
 	if payload.Token == nil {
-		c.authToken = ""
-		c.authTokenExp = parseTokenExpiration(payload.Exp)
-		return "", nil
+		return "", exp, nil
 	}
 
-	c.authToken = *payload.Token
-	c.authTokenExp = parseTokenExpiration(payload.Exp)
-	return c.authToken, nil
+	return *payload.Token, exp, nil
 }
 
 func (c *Client) checkCriteria(token string, switcher *Switcher, showDetails bool) (ResultDetail, error) {

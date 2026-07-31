@@ -18,6 +18,7 @@ const (
 // RemoteOptions configures remote transport behavior, timeouts and certificate path.
 type RemoteOptions struct {
 	CertPath       string
+	AutoRenewToken bool
 	ConnectTimeout time.Duration
 	Timeout        time.Duration
 }

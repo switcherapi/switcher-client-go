@@ -17,6 +17,7 @@ func (c *Client) setSnapshot(snapshot *Snapshot) {
 func (c *Client) stopBackgroundTasks() {
 	c.TerminateSnapshotAutoUpdate()
 	c.UnwatchSnapshot()
+	c.autoRenewer.stop()
 }
 
 func (c *Client) shouldCheckSnapshot(fetchRemote bool) bool {
