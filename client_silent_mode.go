@@ -49,6 +49,8 @@ func (c *Client) authState() (string, int64) {
 }
 
 func (c *Client) updateSilentToken() {
+	c.autoRenewer.stop()
+
 	c.authMu.Lock()
 	defer c.authMu.Unlock()
 

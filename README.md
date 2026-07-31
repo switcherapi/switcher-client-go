@@ -188,6 +188,7 @@ func main() {
 			RegexMaxTimeLimit:          100 * time.Millisecond,
 			Remote: client.RemoteOptions{
 				CertPath:       "./certs/client.pem",
+				AutoRenewToken: true,
 				ConnectTimeout: 300 * time.Millisecond,
 				Timeout:        5 * time.Second,
 			},
@@ -220,6 +221,7 @@ func main() {
 | Option | Type | Description | Default |
 |--------|------|-------------|---------|
 | `CertPath` | `string` | Path to a PEM bundle containing the client certificate and private key for secure API connections | `""` |
+| `AutoRenewToken` | `bool` | Proactively renew the auth token in the background shortly before it expires, avoiding synchronous re-auth latency on foreground requests | `false` |
 | `ConnectTimeout` | `time.Duration` | Max time to establish a remote connection before failing fast | `300ms` |
 | `Timeout` | `time.Duration` | Max time for remote request/response and idle connection reuse | `5s` |
 

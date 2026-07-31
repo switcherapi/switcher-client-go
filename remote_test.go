@@ -2,8 +2,10 @@ package client
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -405,6 +407,168 @@ func TestSwitcherRemoteEvaluation(t *testing.T) {
 		var remoteCriteriaErr *RemoteCriteriaError
 		assert.ErrorAs(t, evalErr, &remoteCriteriaErr)
 		assert.EqualError(t, evalErr, "[check_criteria] remote unavailable")
+	})
+}
+
+func TestSwitcherRemoteAutoRenewToken(t *testing.T) {
+	t.Run("should proactively renew the token in the background before it expires when AutoRenewToken is enabled", func(t *testing.T) {
+		var authRequests atomic.Int32
+		mux := http.NewServeMux()
+		mux.HandleFunc("/criteria/auth", func(writer http.ResponseWriter, request *http.Request) {
+			count := authRequests.Add(1)
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{
+				"token": fmt.Sprintf("[token-%d]", count),
+				"exp":   time.Now().Add(150 * time.Millisecond).Unix(),
+			})
+		})
+		mux.HandleFunc("/criteria", func(writer http.ResponseWriter, request *http.Request) {
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{"result": true})
+		})
+		server := httptest.NewServer(mux)
+		defer server.Close()
+
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       server.URL,
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+			Options: ContextOptions{
+				Remote: RemoteOptions{AutoRenewToken: true},
+			},
+		})
+
+		got, err := client.GetSwitcher("MY_SWITCHER").IsOn()
+		assert.NoError(t, err)
+		assert.True(t, got)
+		assert.Equal(t, int32(1), authRequests.Load())
+
+		assert.Eventually(t, func() bool {
+			return authRequests.Load() >= 2
+		}, 2*time.Second, 25*time.Millisecond, "expected a background renewal without another foreground call")
+	})
+
+	t.Run("should not schedule background renewal when AutoRenewToken is disabled (default)", func(t *testing.T) {
+		var authRequests atomic.Int32
+		mux := http.NewServeMux()
+		mux.HandleFunc("/criteria/auth", func(writer http.ResponseWriter, request *http.Request) {
+			count := authRequests.Add(1)
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{
+				"token": fmt.Sprintf("[token-%d]", count),
+				"exp":   time.Now().Add(150 * time.Millisecond).Unix(),
+			})
+		})
+		mux.HandleFunc("/criteria", func(writer http.ResponseWriter, request *http.Request) {
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{"result": true})
+		})
+		server := httptest.NewServer(mux)
+		defer server.Close()
+
+		client := newRemoteTestClient(server.URL)
+
+		got, err := client.GetSwitcher("MY_SWITCHER").IsOn()
+		assert.NoError(t, err)
+		assert.True(t, got)
+		assert.Equal(t, int32(1), authRequests.Load())
+
+		// no background renewal should happen even after the token expires
+		time.Sleep(1200 * time.Millisecond)
+		assert.Equal(t, int32(1), authRequests.Load(), "expected no background auth request to occur")
+
+		// existing lazy behavior: only refreshed on next foreground call
+		got, err = client.GetSwitcher("MY_SWITCHER").IsOn()
+		assert.NoError(t, err)
+		assert.True(t, got)
+		assert.Equal(t, int32(2), authRequests.Load())
+	})
+
+	t.Run("should stop background renewal on failure and still succeed via lazy re-auth on the next foreground call", func(t *testing.T) {
+		var authRequests atomic.Int32
+		var failSecondAuthRequest atomic.Bool
+		mux := http.NewServeMux()
+		mux.HandleFunc("/criteria/auth", func(writer http.ResponseWriter, request *http.Request) {
+			count := authRequests.Add(1)
+			if count == 2 && failSecondAuthRequest.Load() {
+				writer.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{
+				"token": fmt.Sprintf("[token-%d]", count),
+				"exp":   time.Now().Add(150 * time.Millisecond).Unix(),
+			})
+		})
+		mux.HandleFunc("/criteria", func(writer http.ResponseWriter, request *http.Request) {
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{"result": true})
+		})
+		server := httptest.NewServer(mux)
+		defer server.Close()
+
+		failSecondAuthRequest.Store(true)
+
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       server.URL,
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+			Options: ContextOptions{
+				Remote: RemoteOptions{AutoRenewToken: true},
+			},
+		})
+
+		got, err := client.GetSwitcher("MY_SWITCHER").IsOn()
+		assert.NoError(t, err)
+		assert.True(t, got)
+
+		// wait for the background renewal attempt to fire and fail
+		assert.Eventually(t, func() bool {
+			return authRequests.Load() >= 2
+		}, 2*time.Second, 25*time.Millisecond, "expected a background renewal attempt to occur")
+
+		// give the failed renewal time to stop the auto-renewer, then allow future auths to succeed
+		time.Sleep(100 * time.Millisecond)
+		failSecondAuthRequest.Store(false)
+
+		// the client should still work, lazily re-authenticating on the next foreground call
+		got, err = client.GetSwitcher("MY_SWITCHER").IsOn()
+		assert.NoError(t, err)
+		assert.True(t, got)
+	})
+
+	t.Run("should stop pending renewal when the client is replaced via BuildContext", func(t *testing.T) {
+		var authRequests atomic.Int32
+		mux := http.NewServeMux()
+		mux.HandleFunc("/criteria/auth", func(writer http.ResponseWriter, request *http.Request) {
+			count := authRequests.Add(1)
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{
+				"token": fmt.Sprintf("[token-%d]", count),
+				"exp":   time.Now().Add(150 * time.Millisecond).Unix(),
+			})
+		})
+		mux.HandleFunc("/criteria", func(writer http.ResponseWriter, request *http.Request) {
+			writeJSONResponse(t, writer, http.StatusOK, map[string]any{"result": true})
+		})
+		server := httptest.NewServer(mux)
+		defer server.Close()
+
+		BuildContext(Context{
+			Domain:    "My Domain",
+			URL:       server.URL,
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+			Options: ContextOptions{
+				Remote: RemoteOptions{AutoRenewToken: true},
+			},
+		})
+
+		got, err := GetSwitcher("MY_SWITCHER").IsOn()
+		assert.NoError(t, err)
+		assert.True(t, got)
+		assert.Equal(t, int32(1), authRequests.Load())
+
+		// replacing the global client should stop the pending renewal on the old client
+		BuildContext(Context{Domain: "Other Domain"})
+
+		time.Sleep(1200 * time.Millisecond)
+		assert.Equal(t, int32(1), authRequests.Load(), "expected no further auth requests against the replaced client's server")
 	})
 }
 

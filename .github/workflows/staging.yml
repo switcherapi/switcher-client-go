@@ -7,7 +7,7 @@ on:
       go:
         description: 'Go version'
         required: true
-        default: '1.26.4'
+        default: '1.26.5'
       os:
         description: 'Operating System (ubuntu-20.04, ubuntu-latest, windows-latest)'
         required: true
@@ -24,12 +24,12 @@ jobs:
 
     steps:
     - name: Git checkout
-      uses: actions/checkout@v6
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
     - name: Set up Go
-      uses: actions/setup-go@v6
+      uses: actions/setup-go@v7
       with:
         go-version: ${{ github.event.inputs.go }}
 

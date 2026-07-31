@@ -35,6 +35,8 @@ type Client struct {
 	authToken    string
 	authTokenExp int64
 
+	autoRenewer *tokenAutoRenewer
+
 	httpClientMu sync.Mutex
 	httpClient_  *http.Client
 
@@ -55,6 +57,7 @@ func NewClient(ctx Context) *Client {
 		throttleTokens:      newThrottleTokens(defaulted.Options.ThrottleMaxWorkers),
 		snapshotWatcher:     newSnapshotWatcher(),
 		snapshotAutoUpdater: newSnapshotAutoUpdater(),
+		autoRenewer:         newTokenAutoRenewer(),
 	}
 }
 
