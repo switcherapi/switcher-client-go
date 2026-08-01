@@ -42,5 +42,13 @@ jobs:
       with:
         version: v2.12.2
 
+    - name: Format
+      run: |
+        if [ -n "$(gofmt -s -l .)" ]; then
+          echo "The following files are not formatted correctly:"
+          gofmt -s -l .
+          exit 1
+        fi
+
     - name: Test
       run: go test -p 1 -v ./...

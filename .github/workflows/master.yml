@@ -29,6 +29,14 @@ jobs:
       with:
         version: v2.12.2
 
+    - name: Format
+      run: |
+        if [ -n "$(gofmt -s -l .)" ]; then
+          echo "The following files are not formatted correctly:"
+          gofmt -s -l .
+          exit 1
+        fi
+
     - name: Test
       run: go test -p 1 -v ./... -coverprofile="coverage.out"
 
@@ -40,7 +48,7 @@ jobs:
 
     - name: Vulnerability Check
       run: |
-        go install golang.org/x/vuln/cmd/govulncheck@3e6f44f962742443c11ae2261f02e0c917aeb2bc
+        go install golang.org/x/vuln/cmd/govulncheck@19b0bb6a272792b9afa8a6983c3e9b9a1816947f
         govulncheck ./...
 
   build-test:

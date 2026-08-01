@@ -18,6 +18,7 @@ type Switcher struct {
 	entries        []criteriaEntry
 	throttlePeriod time.Duration
 	nextRefreshAt  time.Time
+	forceRemote    bool
 	mu             sync.RWMutex
 }
 
@@ -34,6 +35,11 @@ const (
 // Returns an error describing missing fields when validation fails.
 func (s *Switcher) Validate() error {
 	ctx := s.client.Context()
+
+	if s.forceRemote && !ctx.Options.Local {
+		return fmt.Errorf("something went wrong: local mode is not enabled")
+	}
+
 	missingFields := make([]string, 0, 3)
 
 	if strings.TrimSpace(ctx.URL) == "" {
@@ -131,6 +137,24 @@ func (s *Switcher) Throttle(period time.Duration) *Switcher {
 
 	if s.nextRefreshAt.IsZero() {
 		s.nextRefreshAt = time.Now().Add(period)
+	}
+
+	return s
+}
+
+// Remote forces this Switcher to always use the remote API for evaluation, bypassing
+// Options.Local (Hybrid Mode). When called without arguments the override defaults to true;
+// passing Remote(false) clears the override so Options.Local is honored normally.
+//
+// The remote override requires Options.Local to be enabled; otherwise Validate (and therefore
+// Prepare/IsOn/IsOnWithDetails) returns an error.
+func (s *Switcher) Remote(force ...bool) *Switcher {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.forceRemote = true
+	if len(force) > 0 {
+		s.forceRemote = force[0]
 	}
 
 	return s
@@ -255,7 +279,7 @@ func (s *Switcher) execute(execution *Switcher, showDetails bool) (ResultDetail,
 }
 
 func (s *Switcher) resolveExecutionMode() (executionMode, error) {
-	if s.client.Context().Options.Local {
+	if s.client.Context().Options.Local && !s.forceRemote {
 		return executionModeLocal, nil
 	}
 
@@ -322,6 +346,7 @@ func (s *Switcher) snapshotForExecution() *Switcher {
 		entries:        clonedEntries,
 		throttlePeriod: s.throttlePeriod,
 		nextRefreshAt:  s.nextRefreshAt,
+		forceRemote:    s.forceRemote,
 	}
 }
 
