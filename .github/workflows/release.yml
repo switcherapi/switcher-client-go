@@ -4,13 +4,12 @@ on:
   release:
     types: [created]
 
-permissions:
-  contents: read
-
 jobs:
   validate-release:
     name: Validate Module Version
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
     - name: Git checkout
