@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSwitcherValidate(t *testing.T) {
@@ -135,5 +136,120 @@ func TestSwitcherMustOrDefault(t *testing.T) {
 
 		gotD := client.GetSwitcher("MY_SWITCHER").IsOnWithDetailsOrDefault(ResultDetail{Result: false, Reason: "default"})
 		assert.Equal(t, ResultDetail{Result: true, Reason: "Success", Metadata: map[string]any{"env": "prod"}}, gotD)
+	})
+}
+
+func TestSwitcherRemoteHybrid(t *testing.T) {
+	t.Run("should call the remote API even when local mode is enabled and a snapshot is loaded", func(t *testing.T) {
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			criteriaStatus: http.StatusOK,
+			// Local snapshot has FF2FOR2022 activated (true) with no strategies; the remote
+			// mock returns false so we can prove the remote path (not local) was used.
+			criteriaBody: map[string]any{"result": false, "reason": "remote"},
+		})
+		defer server.Close()
+
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       server.URL,
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+			Options: ContextOptions{
+				Local:            true,
+				SnapshotLocation: snapshotFixtureDir(),
+			},
+		})
+
+		_, loadErr := client.LoadSnapshot(nil)
+		require.NoError(t, loadErr)
+
+		// sanity check: plain local evaluation returns true and never hits the server.
+		localResult, localErr := client.GetSwitcher("FF2FOR2022").IsOn()
+		require.NoError(t, localErr)
+		assert.True(t, localResult)
+
+		remoteResult, remoteErr := client.GetSwitcher("FF2FOR2022").Remote().IsOn()
+		require.NoError(t, remoteErr)
+		assert.False(t, remoteResult)
+	})
+
+	t.Run("should return an error from Validate/IsOn when local mode is not enabled", func(t *testing.T) {
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       "https://api.switcherapi.com",
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+		})
+
+		switcher := client.GetSwitcher("FEATURE_LOGIN_V2").Remote()
+
+		err := switcher.Validate()
+		assert.EqualError(t, err, "something went wrong: local mode is not enabled")
+
+		_, isOnErr := switcher.IsOn()
+		assert.EqualError(t, isOnErr, "something went wrong: local mode is not enabled")
+	})
+
+	t.Run("should behave as a no-op override when Remote(false) is used", func(t *testing.T) {
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			criteriaStatus: http.StatusOK,
+			criteriaBody:   map[string]any{"result": false, "reason": "remote"},
+		})
+		defer server.Close()
+
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       server.URL,
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+			Options: ContextOptions{
+				Local:            true,
+				SnapshotLocation: snapshotFixtureDir(),
+			},
+		})
+
+		_, loadErr := client.LoadSnapshot(nil)
+		require.NoError(t, loadErr)
+
+		result, err := client.GetSwitcher("FF2FOR2022").Remote(false).IsOn()
+		require.NoError(t, err)
+		assert.True(t, result)
+	})
+
+	t.Run("should compose with Check*, Throttle and IsOnWithDetails chains", func(t *testing.T) {
+		server := newRemoteTestServer(t, remoteTestHandlers{
+			authStatus:     http.StatusOK,
+			authBody:       map[string]any{"token": "[token]", "exp": time.Now().Add(time.Hour).Unix()},
+			criteriaStatus: http.StatusOK,
+			criteriaBody:   map[string]any{"result": true, "reason": "Success"},
+		})
+		defer server.Close()
+
+		client := NewClient(Context{
+			Domain:    "My Domain",
+			URL:       server.URL,
+			APIKey:    "[YOUR_API_KEY]",
+			Component: "MyApp",
+			Options: ContextOptions{
+				Local:            true,
+				SnapshotLocation: snapshotFixtureDir(),
+			},
+		})
+
+		_, loadErr := client.LoadSnapshot(nil)
+		require.NoError(t, loadErr)
+
+		result, err := client.GetSwitcher("FF2FOR2022").
+			Remote().
+			CheckValue("USER_1").
+			Throttle(time.Second).
+			IsOnWithDetails()
+
+		require.NoError(t, err)
+		assert.Equal(t, ResultDetail{Result: true, Reason: "Success", Metadata: map[string]any{}}, result)
 	})
 }

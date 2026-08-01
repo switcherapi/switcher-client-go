@@ -5,14 +5,6 @@ public API surface down to the individual files that implement it. The package i
 intentionally flat (`package client`, no internal sub-packages), so this document
 exists to make the relationships between files explicit.
 
-> **TODO / known gap**: README.md's [Hybrid Mode](README.md#hybrid-mode) section
-> documents `client.GetSwitcher("FEATURE01").Remote().IsOn()`, but no `Remote()`
-> method exists on `Switcher` in the current codebase (verified against
-> `switcher.go`). Either implement `Switcher.Remote()` (a per-call override that
-> forces `executionModeRemote`, bypassing `Options.Local`/Silent Mode) or update
-> README.md to remove/replace the example. See [§2](#2-api-surface-map-feature--code)
-> and [§6](#6-execution-modes-local-remote-silent).
-
 ## Table of Contents
 
 - [1. Design Goals](#1-design-goals)
@@ -63,7 +55,7 @@ This maps README.md features to the files that implement them.
 | Prepare/Execute pattern | `Switcher.Prepare` | `switcher.go` |
 | Error notifications | `SubscribeNotifyError` | `client.go` |
 | Throttling (stale-while-revalidate) | `Switcher.Throttle` | `switcher.go`, `execution_logger.go` |
-| Hybrid mode (force remote) | `Switcher.Remote` *(documented in README; not yet present in code — see note below)* | `switcher.go` |
+| Hybrid mode (force remote) | `Switcher.Remote` | `switcher.go` |
 | Circuit breaker / Silent Mode | `Options.SilentMode` | `client_silent_mode.go` |
 | Snapshot loading | `LoadSnapshot` | `client.go`, `snapshot.go` |
 | Snapshot version check | `CheckSnapshot`, `SnapshotVersion` | `client.go`, `remote.go` |
@@ -80,39 +72,39 @@ This maps README.md features to the files that implement them.
 ```
                           ┌─────────────────────────────┐
                           │   Application Code (user)   │
-                          └──────────────┬───────────────┘
+                          └──────────────┬──────────────┘
                                          │ package-level API
                                          ▼
                           ┌─────────────────────────────┐
-                          │   client.go (facade layer)   │  BuildContext / GetSwitcher /
-                          │   defaultClient() singleton  │  LoadSnapshot / CheckSnapshot ...
-                          └──────────────┬───────────────┘
+                          │   client.go (facade layer)  │  BuildContext / GetSwitcher /
+                          │   defaultClient() singleton │  LoadSnapshot / CheckSnapshot ...
+                          └──────────────┬──────────────┘
                                          │ delegates to
                                          ▼
-                          ┌─────────────────────────────┐
-                          │        *Client (core)        │
-                          │  context.go   – configuration │
-                          │  client.go    – switcher cache,│
-                          │                 execution log, │
-                          │                 throttle tokens│
-                          └───┬─────────┬─────────┬───────┘
+                          ┌─────────────────────────────────┐
+                          │        *Client (core)           │
+                          │  context.go   – configuration   │
+                          │  client.go    – switcher cache, │
+                          │                 execution log,  │
+                          │                 throttle tokens │
+                          └───┬─────────┬─────────┬─────────┘
                               │         │         │
              ┌────────────────┘         │         └────────────────┐
              ▼                          ▼                          ▼
    ┌───────────────────┐     ┌───────────────────┐      ┌────────────────────┐
-   │   switcher.go      │     │   remote.go        │      │  snapshot.go /      │
-   │  Switcher (fluent   │     │  HTTP transport,   │      │  resolver.go        │
-   │  API + execution    │◄───┤  auth, criteria,   │      │  snapshot state,    │
-   │  orchestration)      │     │  snapshot fetch    │      │  local evaluation   │
-   └─────────┬───────────┘     └─────────┬──────────┘      └──────────┬─────────┘
-             │                           │                            │
-             ▼                           ▼                            ▼
-   ┌───────────────────┐     ┌───────────────────┐      ┌────────────────────┐
-   │ execution_logger.go│     │ client_silent_     │      │ local_strategies.go│
-   │ (throttle cache/    │     │ mode.go            │      │ (per-strategy      │
-   │  logging)           │     │ client_auto_       │      │  criteria engine)  │
-   │                     │     │ renew.go           │      │                    │
-   └───────────────────┘     └───────────────────┘      └────────────────────┘
+   │   switcher.go     │     │   remote.go       │      │  snapshot.go /     │
+   │  Switcher (fluent │     │  HTTP transport,  │      │  resolver.go       │
+   │  API + execution  │◄────┤  auth, criteria,  │      │  snapshot state,   │
+   │  orchestration)   │     │  snapshot fetch   │      │  local evaluation  │
+   └─────────┬─────────┘     └─────────┬─────────┘      └──────────┬─────────┘
+             │                         │                           │
+             ▼                         ▼                           ▼
+   ┌─────────────────────┐     ┌───────────────────┐      ┌────────────────────┐
+   │ execution_logger.go │     │ client_silent_    │      │ local_strategies.go│
+   │ (throttle cache/    │     │ mode.go           │      │ (per-strategy      │
+   │  logging)           │     │ client_auto_      │      │  criteria engine)  │
+   │                     │     │ renew.go          │      │                    │
+   └─────────────────────┘     └───────────────────┘      └────────────────────┘
 
    Cross-cutting: mock.go (test overrides), errors.go (typed errors),
    result.go (ResultDetail), snapshot_watcher.go / snapshot_auto_updater.go (background jobs)
@@ -205,6 +197,19 @@ re-arms another silent window.
 This makes Silent Mode a **circuit breaker with local-snapshot fallback** rather than
 a simple retry: local snapshot data must be self-sufficient (no Relay dependency) for
 switchers evaluated in this mode — see the `RestrictRelay` check in `resolver.go`.
+
+**Hybrid Mode override** (`Switcher.Remote(force ...bool)`, `switcher.go`): a per-call
+opt-out from local execution. Setting `forceRemote = true` on a `Switcher` (the
+default when calling `Remote()` with no arguments; `Remote(false)` clears it) changes
+`resolveExecutionMode`'s first branch from `Options.Local` to
+`Options.Local && !forceRemote`, so a forced switcher always falls through to the
+`Validate` → token → `executionModeRemote` (or `executionModeSilentLocal`, if a
+silent-mode window is active) path even while the client is otherwise configured for
+Local Mode. `Validate()` requires `Options.Local == true` whenever `forceRemote` is
+set — calling `Remote()` while local mode is disabled has no effect on mode
+selection (the client is already remote-only) but does yield a
+`"something went wrong: local mode is not enabled"` error from `Validate`, `Prepare`,
+`IsOn`, and `IsOnWithDetails`.
 
 ## 7. Snapshot Lifecycle
 

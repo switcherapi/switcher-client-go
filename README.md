@@ -11,7 +11,6 @@ A Go SDK for Switcher API
 [![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=switcherapi_switcher-client-go&metric=alert_status)](https://sonarcloud.io/dashboard?id=switcherapi_switcher-client-go)
 ![Known Vulnerabilities](https://snyk.io/test/github/switcherapi/switcher-client-go/badge.svg)
 ![Go](https://img.shields.io/badge/go-1.25%2B-blue.svg)
-![Status](https://img.shields.io/badge/status-under_development-orange.svg)
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 [![Slack: Switcher-HQ](https://img.shields.io/badge/slack-@switcher/hq-blue.svg?logo=slack)](https://switcher-hq.slack.com/)
 
@@ -377,12 +376,17 @@ fmt.Println(logged.Response.Metadata["cached"])
 ```
 
 #### Hybrid Mode
+
+When `ContextOptions.Local` is enabled, evaluations are resolved against the local snapshot by default. Chain `.Remote()` on a specific Switcher to force that call to always use the remote API instead, without disabling Local Mode for the rest of the client.
+
 ```go
 _, err := client.GetSwitcher("FEATURE01").Remote().IsOn()
 if err != nil {
 	panic(err)
 }
 ```
+
+`Remote()` requires `ContextOptions.Local` to be `true` — otherwise `Validate`/`IsOn`/`IsOnWithDetails` return an error. Pass `Remote(false)` to explicitly clear the override and fall back to the client's normal `Local`/Silent Mode behavior.
 
 #### Circuit Breaker: Silent Mode
 
