@@ -60,16 +60,13 @@ A Go SDK for Switcher API
 
 The **Switcher Client SDK for Go** provides integration with [Switcher-API](https://github.com/switcherapi/switcher-api), enabling feature flag management in Go applications.
 
-> Features marked as **Under development** are part of the current SDK roadmap and may not be available in the repository yet.
-
 ### Key Features
 
 - **Clean & Maintainable**: Simple package-level access with an instance-based core
 - **Local Mode**: Offline execution using snapshot files from your Switcher-API domain
 - **Silent Mode**: Hybrid configuration with automatic fallback for connectivity issues
-- **Built-in Testing Helpers (Under development)**: Test-oriented mocking support adapted for Go
+- **Built-in Testing Helpers**: Test-oriented mocking support adapted for Go
 - **Zero Latency**: Local snapshot execution for high-performance scenarios
-- **Secure**: Regex protections and configurable remote transport settings
 - **Monitoring**: Execution logging, caching, and error notification hooks
 
 ## Quick Start
@@ -184,8 +181,6 @@ func main() {
 			SilentMode:                 5 * time.Minute,
 			RestrictRelay:              true,
 			ThrottleMaxWorkers:         2,
-			RegexMaxBlacklist:          10,
-			RegexMaxTimeLimit:          100 * time.Millisecond,
 			Remote: client.RemoteOptions{
 				CertPath:       "./certs/client.pem",
 				AutoRenewToken: true,
@@ -212,8 +207,6 @@ func main() {
 | `SilentMode` | `time.Duration` | Silent mode retry time before returning to remote mode | `0` |
 | `RestrictRelay` | `bool` | Enable relay restrictions in local mode | `true` |
 | `ThrottleMaxWorkers` | `int` | Max workers for throttling refresh tasks | runtime-defined |
-| `RegexMaxBlacklist` | `int` | Max cached entries for failed regex | `100` |
-| `RegexMaxTimeLimit` | `time.Duration` | Regex execution time limit | `3s` |
 | `Remote` | `RemoteOptions` | Remote transport settings | `RemoteOptions{}` |
 
 `RemoteOptions` fields:
@@ -226,12 +219,6 @@ func main() {
 | `Timeout` | `time.Duration` | Max time for remote request/response and idle connection reuse | `5s` |
 
 **Note:** lower remote connect timeouts help silent mode fall back faster when the upstream is unavailable.
-
-#### Security Features
-
-- **ReDoS Protection (Under development)**: Regex safety features with bounded execution time
-- **Time Limits**: Configurable timeouts for regex and remote operations
-- **Certificate Support**: PEM client-certificate bundles for secure API connections
 
 ## Usage Examples
 

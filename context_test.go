@@ -48,8 +48,6 @@ func TestBuildContext(t *testing.T) {
 
 		assert.Equal(t, DefaultEnvironment, ctx.Environment)
 		assert.True(t, ctx.Options.RestrictRelay)
-		assert.Equal(t, DefaultRegexMaxBlacklist, ctx.Options.RegexMaxBlacklist)
-		assert.Equal(t, DefaultRegexMaxTimeLimit, ctx.Options.RegexMaxTimeLimit)
 		assert.Equal(t, DefaultRemoteConnectTimeout, ctx.Options.Remote.ConnectTimeout)
 		assert.Equal(t, DefaultRemoteTimeout, ctx.Options.Remote.Timeout)
 	})

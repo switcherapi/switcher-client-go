@@ -9,8 +9,6 @@ const (
 	DefaultLogger               = false
 	DefaultFreeze               = false
 	DefaultRestrictRelay        = true
-	DefaultRegexMaxBlacklist    = 100
-	DefaultRegexMaxTimeLimit    = 3 * time.Second
 	DefaultRemoteConnectTimeout = 300 * time.Millisecond
 	DefaultRemoteTimeout        = 5 * time.Second
 )
@@ -24,7 +22,7 @@ type RemoteOptions struct {
 }
 
 // ContextOptions exposes advanced SDK behaviors such as local mode, snapshot management,
-// throttling and regex safety configuration. See README advanced configuration for details.
+// throttling. See README advanced configuration for details.
 type ContextOptions struct {
 	Local                      bool
 	Logger                     bool
@@ -34,8 +32,6 @@ type ContextOptions struct {
 	SilentMode                 time.Duration
 	RestrictRelay              bool
 	ThrottleMaxWorkers         int
-	RegexMaxBlacklist          int
-	RegexMaxTimeLimit          time.Duration
 	Remote                     RemoteOptions
 }
 
@@ -62,14 +58,6 @@ func (c Context) withDefaults() Context {
 func (o ContextOptions) withDefaults() ContextOptions {
 	if !o.RestrictRelay {
 		o.RestrictRelay = DefaultRestrictRelay
-	}
-
-	if o.RegexMaxBlacklist == 0 {
-		o.RegexMaxBlacklist = DefaultRegexMaxBlacklist
-	}
-
-	if o.RegexMaxTimeLimit == 0 {
-		o.RegexMaxTimeLimit = DefaultRegexMaxTimeLimit
 	}
 
 	o.Remote = o.Remote.withDefaults()
