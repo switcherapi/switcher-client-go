@@ -112,6 +112,14 @@ func TestLocalStrategyOperations(t *testing.T) {
 		assert.False(t, processLocalStrategy(makeStrategy("REGEX_VALIDATION", "INVALID_OP", []string{`USER_[0-9]{1,2}`}), "USER_11"))
 	})
 
+	t.Run("should avoid catastrophic backtracking for regex strategy", func(t *testing.T) {
+		assert.False(t, processLocalStrategy(makeStrategy("REGEX_VALIDATION", "EXIST", []string{`^(([a-z])+.)+[A-Z]([a-z])+$`}), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"))
+		assert.False(t, processLocalStrategy(makeStrategy("REGEX_VALIDATION", "EXIST", []string{`^(a+)+$`}), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!"))
+		assert.False(t, processLocalStrategy(makeStrategy("REGEX_VALIDATION", "EQUAL", []string{`^(a+)+$`}), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!"))
+		assert.True(t, processLocalStrategy(makeStrategy("REGEX_VALIDATION", "NOT_EXIST", []string{`^(a+)+$`}), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!"))
+		assert.True(t, processLocalStrategy(makeStrategy("REGEX_VALIDATION", "NOT_EQUAL", []string{`^(a+)+$`}), "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa!"))
+	})
+
 	t.Run("should return false for unknown strategy", func(t *testing.T) {
 		assert.False(t, processLocalStrategy(makeStrategy("UNKNOWN", "EQUAL", []string{"USER_1"}), "USER_1"))
 	})
