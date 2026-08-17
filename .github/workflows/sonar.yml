@@ -33,10 +33,10 @@ jobs:
         ref: ${{ steps.pr.outputs.head_sha }}
         fetch-depth: 0
 
-    - name: Set up Go 1.26.5
+    - name: Set up Go 1.26.6
       uses: actions/setup-go@v7
       with:
-        go-version: '1.26.5'
+        go-version: '1.26.6'
 
     - name: Build
       run: go build -v ./...
@@ -62,5 +62,5 @@ jobs:
 
     - name: Vulnerability Check
       run: |
-        go install golang.org/x/vuln/cmd/govulncheck@19b0bb6a272792b9afa8a6983c3e9b9a1816947f
+        go install golang.org/x/vuln/cmd/govulncheck@617f44b718537dccdea1915395650e0529e3b72e
         govulncheck ./...

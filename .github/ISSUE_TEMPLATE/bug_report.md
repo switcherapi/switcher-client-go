@@ -15,7 +15,7 @@ A clear and concise description of what you expected to happen.
 
 **Desktop (please complete the following information):**
  - OS: [e.g. iOS]
- - Go version: [e.g. 1.26.3]
+ - Go version: [e.g. 1.26.6]
 
 **Additional context**
 Add any other context about the problem here.

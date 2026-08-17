@@ -1,7 +1,7 @@
 .PHONY: test fmt cover cover-html lint lint-install godoc-install docs vulncheck vulncheck-install
 
 GOLANGCI_LINT_VERSION=v2.12.2
-GOVULNCHECK_VERSION=v1.6.0
+GOVULNCHECK_VERSION=v1.7.0
 
 test-clean:
 	go clean -testcache
