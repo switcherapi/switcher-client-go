@@ -7,7 +7,7 @@ on:
       go:
         description: 'Go version'
         required: true
-        default: '1.26.6'
+        default: '1.27.0'
       os:
         description: 'Operating System (ubuntu-20.04, ubuntu-latest, windows-latest)'
         required: true
@@ -40,7 +40,7 @@ jobs:
       if: ${{ github.event.inputs.skip-lint != 'true' }}
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.12.2
+        version: v2.13.2
 
     - name: Format
       run: |
