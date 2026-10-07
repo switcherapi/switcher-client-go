@@ -16,10 +16,10 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Set up Go 1.27.0
+    - name: Set up Go 1.27.1
       uses: actions/setup-go@v7
       with:
-        go-version: '1.27.0'
+        go-version: '1.27.1'
 
     - name: Build
       run: go build -v ./...
@@ -27,7 +27,7 @@ jobs:
     - name: Lint
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.13.2
+        version: v2.14.0
 
     - name: Format
       run: |
@@ -41,14 +41,14 @@ jobs:
       run: go test -p 1 -v ./... -coverprofile="coverage.out"
 
     - name: SonarCloud Scan
-      uses: sonarsource/sonarqube-scan-action@v8.2.1
+      uses: sonarsource/sonarqube-scan-action@v8.3.0
       env:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       if: env.SONAR_TOKEN != ''
 
-    - name: Vulnerability Check
+    - name: Vulnerability Check v1.8.0
       run: |
-        go install golang.org/x/vuln/cmd/govulncheck@617f44b718537dccdea1915395650e0529e3b72e
+        go install golang.org/x/vuln/cmd/govulncheck@709015412431dd2b5b28a53c06c70bc02d49074c
         govulncheck ./...
 
   build-test:
@@ -57,7 +57,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        go-version: ['1.25.10', '1.26.6', '1.27.0']
+        go-version: ['1.25.10', '1.26.6', '1.27.1']
 
     steps:
     - name: Git checkout

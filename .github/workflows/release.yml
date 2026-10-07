@@ -15,10 +15,10 @@ jobs:
     - name: Git checkout
       uses: actions/checkout@v7
 
-    - name: Set up Go 1.27.0
+    - name: Set up Go 1.27.1
       uses: actions/setup-go@v7
       with:
-        go-version: '1.27.0'
+        go-version: '1.27.1'
 
     - name: Validate tag is semver
       run: |
@@ -63,7 +63,7 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
-        go-version: ['1.25.10', '1.26.6', '1.27.0']
+        go-version: ['1.25.10', '1.26.6', '1.27.1']
 
     steps:
     - name: Git checkout
@@ -91,10 +91,10 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Set up Go 1.27.0
+    - name: Set up Go 1.27.1
       uses: actions/setup-go@v7
       with:
-        go-version: '1.27.0'
+        go-version: '1.27.1'
 
     - name: Build
       run: go build -v ./...
@@ -102,7 +102,7 @@ jobs:
     - name: Lint
       uses: golangci/golangci-lint-action@v9
       with:
-        version: v2.13.2
+        version: v2.14.0
 
     - name: Format
       run: |
@@ -112,9 +112,9 @@ jobs:
           exit 1
         fi
 
-    - name: Vulnerability Check
+    - name: Vulnerability Check v1.8.0
       run: |
-        go install golang.org/x/vuln/cmd/govulncheck@617f44b718537dccdea1915395650e0529e3b72e
+        go install golang.org/x/vuln/cmd/govulncheck@709015412431dd2b5b28a53c06c70bc02d49074c
         govulncheck ./...
 
   provenance:
@@ -133,10 +133,10 @@ jobs:
       with:
         fetch-depth: 0
 
-    - name: Set up Go 1.27.0
+    - name: Set up Go 1.27.1
       uses: actions/setup-go@v7
       with:
-        go-version: '1.27.0'
+        go-version: '1.27.1'
 
     - name: Verify module & generate checksums
       run: |
@@ -172,10 +172,10 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Set up Go 1.27.0
+    - name: Set up Go 1.27.1
       uses: actions/setup-go@v7
       with:
-        go-version: '1.27.0'
+        go-version: '1.27.1'
 
     - name: Notify Go module proxy
       run: |
