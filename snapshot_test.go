@@ -219,7 +219,7 @@ func handleSnapshotCheck(t *testing.T, writer http.ResponseWriter, request *http
 	defer mu.Unlock()
 
 	if len(handlers.snapshotChecks) > 0 {
-		step := handlers.snapshotChecks[min(*index, len(handlers.snapshotChecks)-1)]
+		step := handlers.snapshotChecks[minInt(*index, len(handlers.snapshotChecks)-1)]
 		*index++
 		writeJSONResponse(t, writer, step.status, step.body)
 		return
@@ -256,7 +256,7 @@ func handleGraphQL(t *testing.T, writer http.ResponseWriter, request *http.Reque
 	}
 
 	if len(handlers.resolveSteps) > 0 {
-		step := handlers.resolveSteps[min(*index, len(handlers.resolveSteps)-1)]
+		step := handlers.resolveSteps[minInt(*index, len(handlers.resolveSteps)-1)]
 		*index++
 		writeJSONResponse(t, writer, step.status, map[string]any{"data": map[string]any{"domain": step.domain}})
 		return
@@ -281,7 +281,7 @@ func handleUnavailable(t *testing.T, writer http.ResponseWriter) {
 	_ = conn.Close()
 }
 
-func min(a, b int) int {
+func minInt(a, b int) int {
 	if a < b {
 		return a
 	}
